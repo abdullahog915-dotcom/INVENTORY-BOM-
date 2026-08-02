@@ -22,12 +22,12 @@ router.get('/stock-valuation', (req, res) => {
         ORDER BY sl.ledger_id DESC LIMIT 1) AS op_qty,
       (SELECT sl.balance_value FROM stock_ledger sl WHERE sl.item_id=i.item_id AND date(sl.txn_date) < date(?)
         ORDER BY sl.ledger_id DESC LIMIT 1) AS op_value
-      FROM items i WHERE i.is_active=1`).all(from, from);
+      FROM items i WHERE i.is_active=1 AND i.company_id=?`).all(from, from, req.companyId);
 
   const txnStmt = db.prepare(`SELECT item_id, txn_type, SUM(qty) qty, SUM(value) value
-      FROM stock_ledger WHERE date(txn_date) BETWEEN date(?) AND date(?)
+      FROM stock_ledger WHERE company_id=? AND date(txn_date) BETWEEN date(?) AND date(?)
       GROUP BY item_id, txn_type`);
-  const sums = txnStmt.all(from, to);
+  const sums = txnStmt.all(req.companyId, from, to);
   const sumByItem = new Map();
   for (const s of sums) {
     if (!sumByItem.has(s.item_id)) sumByItem.set(s.item_id, {});
@@ -104,13 +104,13 @@ router.get('/scrap', (req, res) => {
         ORDER BY sl.ledger_id DESC LIMIT 1) AS op_qty,
       (SELECT sl.balance_value FROM stock_ledger sl WHERE sl.item_id=i.item_id AND date(sl.txn_date) < date(?)
         ORDER BY sl.ledger_id DESC LIMIT 1) AS op_value
-      FROM items i WHERE i.item_type='SCRAP' AND i.is_active=1`).all(from, from);
+      FROM items i WHERE i.item_type='SCRAP' AND i.is_active=1 AND i.company_id=?`).all(from, from, req.companyId);
 
   const txnStmt = db.prepare(`SELECT item_id, txn_type, SUM(qty) qty, SUM(value) value
-      FROM stock_ledger WHERE date(txn_date) BETWEEN date(?) AND date(?)
+      FROM stock_ledger WHERE company_id=? AND date(txn_date) BETWEEN date(?) AND date(?)
         AND txn_type IN ('SCRAP_IN','SCRAP_OUT','SALES_OUT','ADJUSTMENT_OUT','ADJUSTMENT_IN','SALES_RETURN_IN')
       GROUP BY item_id, txn_type`);
-  const sums = txnStmt.all(from, to);
+  const sums = txnStmt.all(req.companyId, from, to);
   const sumByItem = new Map();
   for (const s of sums) {
     if (!sumByItem.has(s.item_id)) sumByItem.set(s.item_id, {});
@@ -141,8 +141,8 @@ router.get('/variance', (req, res) => {
   const { from, to } = req.query;
   let sql = `SELECT po.*, oi.sku AS output_sku, oi.item_name AS output_name, oi.unit
       FROM production_orders po JOIN items oi ON oi.item_id=po.output_item_id
-      WHERE po.status='COMPLETED'`;
-  const params = [];
+      WHERE po.status='COMPLETED' AND po.company_id=?`;
+  const params = [req.companyId];
   if (from && to) { sql += ` AND date(po.completed_date) BETWEEN date(?) AND date(?)`; params.push(from, to); }
   sql += ` ORDER BY po.prod_order_id DESC LIMIT 500`;
   const rows = db.prepare(sql).all(...params);
@@ -178,9 +178,9 @@ router.get('/consumption', (req, res) => {
       COUNT(DISTINCT sl.reference_id) AS orders_consumed,
       SUM(sl.qty) AS total_qty, SUM(sl.value) AS total_value
       FROM stock_ledger sl JOIN items i ON i.item_id=sl.item_id
-      WHERE sl.txn_type='PRODUCTION_CONSUMPTION_OUT'
+      WHERE sl.txn_type='PRODUCTION_CONSUMPTION_OUT' AND sl.company_id=?
         AND date(sl.txn_date) BETWEEN date(?) AND date(?)
-      GROUP BY i.item_id ORDER BY i.item_type, total_qty DESC`).all(from, to);
+      GROUP BY i.item_id ORDER BY i.item_type, total_qty DESC`).all(req.companyId, from, to);
   const total = rows.reduce((t, r) => ({ qty: round2(t.qty + r.total_qty), value: round2(t.value + r.total_value) }), { qty: 0, value: 0 });
   res.json({ from, to, items: rows.map(r => ({ ...r, total_qty: round2(r.total_qty), total_value: round2(r.total_value) })), total });
 });
@@ -189,8 +189,8 @@ router.get('/consumption', (req, res) => {
 router.get('/low-stock', (req, res) => {
   const rows = db.prepare(`SELECT item_id, sku, item_name, item_type, category, unit, reorder_level,
       current_stock_qty, current_stock_value, last_purchase_rate, sale_rate
-      FROM items WHERE is_active=1 AND reorder_level > 0 AND current_stock_qty <= reorder_level
-      ORDER BY (current_stock_qty - reorder_level) ASC`).all();
+      FROM items WHERE is_active=1 AND company_id=? AND reorder_level > 0 AND current_stock_qty <= reorder_level
+      ORDER BY (current_stock_qty - reorder_level) ASC`).all(req.companyId);
   res.json(rows.map(r => ({
     ...r,
     suggested_qty: round2(Math.max(0, r.reorder_level * 2 - r.current_stock_qty)),

@@ -1,9 +1,19 @@
 const BASE = '/api';
 
+let currentCompanyId = null;
+export function setApiCompany(id) {
+  currentCompanyId = id;
+}
+export function getApiCompany() {
+  return currentCompanyId;
+}
+
 export async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (currentCompanyId) headers['X-Company-Id'] = String(currentCompanyId);
   const res = await fetch(BASE + path, {
-    headers: { 'Content-Type': 'application/json' },
     ...opts,
+    headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   let data = null;

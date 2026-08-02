@@ -31,3 +31,23 @@ input[type="number"]::-webkit-inner-spin-button {
 .table-scroll::-webkit-scrollbar-track {
   background: #f8fafc;
 }
+
+/* ---------- Print (A4 invoice) ---------- */
+#print-area {
+  display: none;
+}
+@media print {
+  @page { size: A4; margin: 10mm; }
+  body { background: #fff; }
+  #print-area {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    z-index: 9999;
+  }
+  body * { visibility: hidden; }
+  #print-area, #print-area * { visibility: visible; }
+  #print-area .avoid-break { page-break-inside: avoid; }
+}

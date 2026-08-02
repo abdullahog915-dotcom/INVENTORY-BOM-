@@ -14,14 +14,56 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
 db.exec(`
+CREATE TABLE IF NOT EXISTS companies (
+  company_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  address TEXT,
+  gstin TEXT,
+  state TEXT,
+  logo TEXT,
+  bank_details TEXT,
+  invoice_terms TEXT,
+  is_default INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+  category_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER REFERENCES companies(company_id),
+  name TEXT NOT NULL,
+  UNIQUE(company_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS groups (
+  group_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER REFERENCES companies(company_id),
+  name TEXT NOT NULL,
+  UNIQUE(company_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS customers (
+  customer_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER REFERENCES companies(company_id),
+  customer_name TEXT NOT NULL,
+  billing_address TEXT,
+  shipping_address TEXT,
+  gstin TEXT,
+  state TEXT,
+  contact_no TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS items (
   item_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER REFERENCES companies(company_id),
   sku TEXT UNIQUE NOT NULL,
   item_name TEXT NOT NULL,
   item_type TEXT NOT NULL CHECK(item_type IN ('RAW_MATERIAL','SEMI_FINISHED','FINISHED_GOOD','SCRAP')),
   category TEXT,
+  grp TEXT,
   unit TEXT NOT NULL,
   hsn_code TEXT,
+  gst_pct REAL DEFAULT 0,
   reorder_level REAL DEFAULT 0,
   current_stock_qty REAL DEFAULT 0,
   avg_cost_rate REAL DEFAULT 0,
@@ -35,6 +77,7 @@ CREATE TABLE IF NOT EXISTS items (
 
 CREATE TABLE IF NOT EXISTS bom_headers (
   bom_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER REFERENCES companies(company_id),
   output_item_id INTEGER NOT NULL REFERENCES items(item_id),
   output_qty REAL NOT NULL DEFAULT 1,
   version INTEGER NOT NULL DEFAULT 1,
@@ -56,6 +99,7 @@ CREATE TABLE IF NOT EXISTS bom_lines (
 
 CREATE TABLE IF NOT EXISTS production_orders (
   prod_order_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER REFERENCES companies(company_id),
   order_no TEXT UNIQUE NOT NULL,
   bom_id INTEGER NOT NULL REFERENCES bom_headers(bom_id),
   output_item_id INTEGER NOT NULL REFERENCES items(item_id),
@@ -98,6 +142,7 @@ CREATE TABLE IF NOT EXISTS production_scrap (
 
 CREATE TABLE IF NOT EXISTS stock_ledger (
   ledger_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER REFERENCES companies(company_id),
   item_id INTEGER NOT NULL REFERENCES items(item_id),
   txn_date TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   txn_type TEXT NOT NULL CHECK(txn_type IN (
@@ -119,20 +164,31 @@ CREATE TABLE IF NOT EXISTS stock_ledger (
 
 CREATE TABLE IF NOT EXISTS vendors (
   vendor_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER REFERENCES companies(company_id),
   vendor_name TEXT NOT NULL,
   vendor_type TEXT DEFAULT 'SUPPLIER' CHECK(vendor_type IN ('SUPPLIER','JOB_WORKER','BOTH')),
   contact_no TEXT,
   address TEXT,
   gstin TEXT,
+  state TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS purchase_orders (
   po_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER REFERENCES companies(company_id),
   po_no TEXT UNIQUE NOT NULL,
   vendor_id INTEGER REFERENCES vendors(vendor_id),
+  vendor_invoice_no TEXT,
   po_date TEXT DEFAULT CURRENT_TIMESTAMP,
+  due_date TEXT,
+  place_of_supply TEXT,
+  payment_terms TEXT,
+  reference_no TEXT,
   status TEXT DEFAULT 'PENDING' CHECK(status IN ('PENDING','PARTIAL','RECEIVED','CANCELLED')),
+  payment_status TEXT DEFAULT 'UNPAID' CHECK(payment_status IN ('UNPAID','PARTIAL','PAID')),
+  amount_paid REAL DEFAULT 0,
+  notes TEXT,
   remarks TEXT
 );
 
@@ -143,15 +199,36 @@ CREATE TABLE IF NOT EXISTS purchase_order_lines (
   qty_ordered REAL NOT NULL,
   qty_received REAL DEFAULT 0,
   rate REAL NOT NULL,
-  gst_pct REAL DEFAULT 0
+  gst_pct REAL DEFAULT 0,
+  hsn_code TEXT,
+  unit TEXT,
+  discount_pct REAL DEFAULT 0,
+  taxable_value REAL DEFAULT 0,
+  cgst_amount REAL DEFAULT 0,
+  sgst_amount REAL DEFAULT 0,
+  igst_amount REAL DEFAULT 0,
+  line_total REAL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS sales_invoices (
   invoice_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER REFERENCES companies(company_id),
   invoice_no TEXT UNIQUE NOT NULL,
   customer_name TEXT NOT NULL,
+  customer_gstin TEXT,
+  customer_state TEXT,
+  billing_address TEXT,
+  shipping_address TEXT,
+  place_of_supply TEXT,
   invoice_date TEXT DEFAULT CURRENT_TIMESTAMP,
-  status TEXT DEFAULT 'POSTED' CHECK(status IN ('POSTED','CANCELLED')),
+  due_date TEXT,
+  payment_terms TEXT,
+  po_reference TEXT,
+  status TEXT DEFAULT 'DRAFT' CHECK(status IN ('DRAFT','SENT','PAID','OVERDUE','CANCELLED')),
+  stock_posted INTEGER DEFAULT 0,
+  terms_conditions TEXT,
+  notes TEXT,
+  authorized_signatory TEXT,
   remarks TEXT
 );
 
@@ -162,11 +239,20 @@ CREATE TABLE IF NOT EXISTS sales_invoice_lines (
   qty REAL NOT NULL,
   qty_returned REAL DEFAULT 0,
   rate REAL NOT NULL,
-  gst_pct REAL DEFAULT 0
+  gst_pct REAL DEFAULT 0,
+  hsn_code TEXT,
+  unit TEXT,
+  discount_pct REAL DEFAULT 0,
+  taxable_value REAL DEFAULT 0,
+  cgst_amount REAL DEFAULT 0,
+  sgst_amount REAL DEFAULT 0,
+  igst_amount REAL DEFAULT 0,
+  line_total REAL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS sales_returns (
   return_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER REFERENCES companies(company_id),
   invoice_id INTEGER NOT NULL REFERENCES sales_invoices(invoice_id),
   item_id INTEGER NOT NULL REFERENCES items(item_id),
   qty REAL NOT NULL,
@@ -177,6 +263,7 @@ CREATE TABLE IF NOT EXISTS sales_returns (
 
 CREATE TABLE IF NOT EXISTS job_work_orders (
   jw_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER REFERENCES companies(company_id),
   jw_no TEXT UNIQUE NOT NULL,
   vendor_id INTEGER REFERENCES vendors(vendor_id),
   item_id INTEGER NOT NULL REFERENCES items(item_id),
@@ -198,6 +285,23 @@ CREATE INDEX IF NOT EXISTS idx_sil_invoice ON sales_invoice_lines(invoice_id);
 CREATE INDEX IF NOT EXISTS idx_consumption_order ON production_consumption(prod_order_id);
 `);
 
+/* ---- helpers ---- */
+export function getDefaultCompanyId() {
+  const row = db.prepare('SELECT company_id FROM companies WHERE is_default=1 ORDER BY company_id LIMIT 1').get()
+    || db.prepare('SELECT company_id FROM companies ORDER BY company_id LIMIT 1').get();
+  return row ? row.company_id : null;
+}
+
+export function now() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+/* ---- run migrations after tables exist (handles old databases) ---- */
+import { runMigrations } from './migrations.js';
+runMigrations();
+
 export const LEDGER_IN_TYPES = new Set([
   'PURCHASE_IN', 'PRODUCTION_OUTPUT_IN', 'SALES_RETURN_IN',
   'SCRAP_IN', 'JOB_WORK_RECEIVED_IN', 'ADJUSTMENT_IN',
@@ -216,9 +320,3 @@ export const LEDGER_TXN_LABELS = {
   ADJUSTMENT_IN: 'Adjustment IN / समायोजन',
   ADJUSTMENT_OUT: 'Adjustment OUT / समायोजन',
 };
-
-export function now() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-}

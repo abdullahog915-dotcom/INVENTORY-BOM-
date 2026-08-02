@@ -5,7 +5,7 @@ import { round2 } from '../ledger.js';
 
 const router = Router();
 
-function createBom(body, reqVersion = null) {
+function createBom(body, reqVersion = null, thisCompanyId = null) {
   const { output_item_id, output_qty, labor_cost, overhead_pct, notes, lines } = body;
   const item = db.prepare('SELECT * FROM items WHERE item_id=?').get(output_item_id);
   if (!item) throw new Error('Output item not found');
@@ -28,9 +28,9 @@ function createBom(body, reqVersion = null) {
 
   const tx = db.transaction(() => {
     const info = db.prepare(`INSERT INTO bom_headers
-      (output_item_id, output_qty, version, labor_cost, overhead_pct, is_active, notes)
-      VALUES (?,?,?,?,?,1,?)`)
-      .run(output_item_id, Number(output_qty) || 1, version, Number(labor_cost) || 0,
+      (company_id, output_item_id, output_qty, version, labor_cost, overhead_pct, is_active, notes)
+      VALUES (?,?,?,?,?,?,1,?)`)
+      .run(thisCompanyId, output_item_id, Number(output_qty) || 1, version, Number(labor_cost) || 0,
         Number(overhead_pct) || 0, notes || null);
     const bomId = info.lastInsertRowid;
     const ins = db.prepare(`INSERT INTO bom_lines
@@ -52,9 +52,9 @@ router.get('/', (req, res) => {
   const { output_item_id } = req.query;
   let sql = `SELECT bh.*, i.sku, i.item_name, i.item_type, i.unit,
              (SELECT COUNT(*) FROM bom_lines bl WHERE bl.bom_id=bh.bom_id) AS line_count
-             FROM bom_headers bh JOIN items i ON i.item_id=bh.output_item_id`;
-  const params = [];
-  if (output_item_id) { sql += ` WHERE bh.output_item_id=?`; params.push(output_item_id); }
+             FROM bom_headers bh JOIN items i ON i.item_id=bh.output_item_id WHERE bh.company_id=?`;
+  const params = [req.companyId];
+  if (output_item_id) { sql += ` AND bh.output_item_id=?`; params.push(output_item_id); }
   sql += ` ORDER BY bh.output_item_id, bh.version DESC`;
   const rows = db.prepare(sql).all(...params);
   const out = rows.map(r => {
@@ -78,7 +78,7 @@ router.get('/explode', (req, res) => {
 
 router.get('/:id', (req, res) => {
   const bom = db.prepare(`SELECT bh.*, i.sku, i.item_name, i.item_type, i.unit
-      FROM bom_headers bh JOIN items i ON i.item_id=bh.output_item_id WHERE bh.bom_id=?`).get(req.params.id);
+      FROM bom_headers bh JOIN items i ON i.item_id=bh.output_item_id WHERE bh.bom_id=? AND bh.company_id=?`).get(req.params.id, req.companyId);
   if (!bom) return res.status(404).json({ error: 'BOM not found' });
   const lines = getBomLines(bom.bom_id);
   const cost = computeBomUnitCost(bom.bom_id);
@@ -86,14 +86,14 @@ router.get('/:id', (req, res) => {
 });
 
 router.get('/:id/versions', (req, res) => {
-  const bom = db.prepare('SELECT output_item_id FROM bom_headers WHERE bom_id=?').get(req.params.id);
+  const bom = db.prepare('SELECT output_item_id FROM bom_headers WHERE bom_id=? AND company_id=?').get(req.params.id, req.companyId);
   if (!bom) return res.status(404).json({ error: 'BOM not found' });
   res.json(bomVersionHistory(bom.output_item_id));
 });
 
 router.post('/', (req, res) => {
   try {
-    const bomId = createBom(req.body);
+    const bomId = createBom(req.body, null, req.companyId);
     const full = db.prepare(`SELECT bh.*, i.sku, i.item_name FROM bom_headers bh
                              JOIN items i ON i.item_id=bh.output_item_id WHERE bh.bom_id=?`).get(bomId);
     res.status(201).json(full);
@@ -104,9 +104,9 @@ router.post('/', (req, res) => {
 
 router.post('/:id/revise', (req, res) => {
   try {
-    const bom = db.prepare('SELECT * FROM bom_headers WHERE bom_id=?').get(req.params.id);
+    const bom = db.prepare('SELECT * FROM bom_headers WHERE bom_id=? AND company_id=?').get(req.params.id, req.companyId);
     if (!bom) return res.status(404).json({ error: 'BOM not found' });
-    const bomId = createBom({ ...req.body, output_item_id: bom.output_item_id }, null);
+    const bomId = createBom({ ...req.body, output_item_id: bom.output_item_id }, null, req.companyId);
     const full = db.prepare(`SELECT bh.*, i.sku, i.item_name FROM bom_headers bh
                              JOIN items i ON i.item_id=bh.output_item_id WHERE bh.bom_id=?`).get(bomId);
     res.status(201).json(full);

@@ -7,7 +7,7 @@ const router = Router();
 
 function nextOrderNo() {
   const year = new Date().getFullYear();
-  const row = db.prepare(`SELECT order_no FROM production_orders ORDER BY prod_order_id DESC LIMIT 1`).get();
+  const row = db.prepare('SELECT order_no FROM production_orders ORDER BY prod_order_id DESC LIMIT 1').get();
   let seq = 1;
   if (row) {
     const m = row.order_no.match(/(\d+)$/);
@@ -26,8 +26,8 @@ const ORDER_SELECT = `SELECT po.*, oi.sku AS output_sku, oi.item_name AS output_
 
 router.get('/', (req, res) => {
   const { status = '', search = '' } = req.query;
-  let sql = ORDER_SELECT + ` WHERE 1=1`;
-  const params = [];
+  let sql = ORDER_SELECT + ` WHERE po.company_id=?`;
+  const params = [req.companyId];
   if (status) { sql += ` AND po.status=?`; params.push(status); }
   if (search) { sql += ` AND (po.order_no LIKE ? OR oi.item_name LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
   sql += ` ORDER BY po.prod_order_id DESC LIMIT 300`;
@@ -35,7 +35,7 @@ router.get('/', (req, res) => {
 });
 
 router.get('/:id', (req, res) => {
-  const order = db.prepare(ORDER_SELECT + ` WHERE po.prod_order_id=?`).get(req.params.id);
+  const order = db.prepare(ORDER_SELECT + ` WHERE po.prod_order_id=? AND po.company_id=?`).get(req.params.id, req.companyId);
   if (!order) return res.status(404).json({ error: 'Production order not found' });
   const consumption = db.prepare(`SELECT pc.*, i.sku, i.item_name, i.unit
     FROM production_consumption pc JOIN items i ON i.item_id=pc.component_item_id
@@ -51,7 +51,7 @@ router.post('/', (req, res) => {
   if (!output_item_id || !(Number(planned_qty) > 0)) {
     return res.status(400).json({ error: 'output_item_id and planned_qty > 0 are required' });
   }
-  const item = db.prepare('SELECT * FROM items WHERE item_id=?').get(output_item_id);
+  const item = db.prepare('SELECT * FROM items WHERE item_id=? AND company_id=?').get(output_item_id, req.companyId);
   if (!item) return res.status(404).json({ error: 'Item not found' });
   const bom = getActiveBom(output_item_id);
   if (!bom) return res.status(400).json({ error: 'No active BOM found for this item' });
@@ -60,10 +60,10 @@ router.post('/', (req, res) => {
     const est = estimateProductionCost(output_item_id, Number(planned_qty));
     const orderNo = nextOrderNo();
     const info = db.prepare(`INSERT INTO production_orders
-      (order_no, bom_id, output_item_id, planned_qty, status,
+      (company_id, order_no, bom_id, output_item_id, planned_qty, status,
        est_material_cost, est_labor_cost, est_overhead_value, estimated_cost, remarks)
-      VALUES (?,?,?,?,'PLANNED',?,?,?,?,?)`)
-      .run(orderNo, bom.bom_id, output_item_id, Number(planned_qty),
+      VALUES (?,?,?,?,?,'PLANNED',?,?,?,?,?)`)
+      .run(req.companyId, orderNo, bom.bom_id, output_item_id, Number(planned_qty),
         est.materialCost, est.laborCost, est.overheadValue, est.total, remarks || null);
     res.status(201).json(db.prepare(ORDER_SELECT + ` WHERE po.prod_order_id=?`).get(info.lastInsertRowid));
   } catch (e) {
@@ -72,7 +72,7 @@ router.post('/', (req, res) => {
 });
 
 router.post('/:id/check-stock', (req, res) => {
-  const order = db.prepare('SELECT * FROM production_orders WHERE prod_order_id=?').get(req.params.id);
+  const order = db.prepare('SELECT * FROM production_orders WHERE prod_order_id=? AND company_id=?').get(req.params.id, req.companyId);
   if (!order) return res.status(404).json({ error: 'Production order not found' });
   try {
     const est = estimateProductionCost(order.output_item_id, order.planned_qty);
@@ -83,7 +83,7 @@ router.post('/:id/check-stock', (req, res) => {
 });
 
 router.post('/:id/complete', (req, res) => {
-  const order = db.prepare('SELECT * FROM production_orders WHERE prod_order_id=?').get(req.params.id);
+  const order = db.prepare('SELECT * FROM production_orders WHERE prod_order_id=? AND company_id=?').get(req.params.id, req.companyId);
   if (!order) return res.status(404).json({ error: 'Production order not found' });
   if (order.status === 'COMPLETED') return res.status(400).json({ error: 'Order already completed' });
   if (order.status === 'CANCELLED') return res.status(400).json({ error: 'Order is cancelled' });
@@ -186,7 +186,7 @@ router.post('/:id/complete', (req, res) => {
 });
 
 router.post('/:id/cancel', (req, res) => {
-  const order = db.prepare('SELECT * FROM production_orders WHERE prod_order_id=?').get(req.params.id);
+  const order = db.prepare('SELECT * FROM production_orders WHERE prod_order_id=? AND company_id=?').get(req.params.id, req.companyId);
   if (!order) return res.status(404).json({ error: 'Production order not found' });
   if (order.status === 'COMPLETED') return res.status(400).json({ error: 'Cannot cancel a completed order' });
   db.prepare(`UPDATE production_orders SET status='CANCELLED', remarks=? WHERE prod_order_id=?`)

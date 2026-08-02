@@ -50,6 +50,61 @@ export function Select({ label, hint, children, className, ...props }) {
   );
 }
 
+/* ---------------- Creatable select (combo-box) ----------------
+   A select that also offers "+ Add New ..." which swaps to an inline input.
+   onAdd(name) must create the value on the server and return the new value. */
+export function CreatableSelect({ label, hint, options = [], value, onChange, onAdd, placeholder = 'Select...', addLabel = '+ Add New', className, inputPlaceholder = 'Type new value' }) {
+  const [adding, setAdding] = useState(false);
+  const [newValue, setNewValue] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    const v = newValue.trim();
+    if (!v || busy) return;
+    setBusy(true);
+    try {
+      const created = await onAdd(v);
+      onChange(created);
+      setNewValue('');
+      setAdding(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (adding) {
+    return (
+      <label className={cx('block', className)}>
+        {label && <span className="block text-xs font-semibold text-slate-600 mb-1">{label}</span>}
+        <div className="flex gap-1.5 items-center">
+          <input
+            autoFocus
+            value={newValue}
+            placeholder={inputPlaceholder}
+            onChange={(e) => setNewValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setAdding(false); }}
+            className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+          <Button variant="primary" className="shrink-0" onClick={submit} disabled={busy || !newValue.trim()}>{busy ? 'Saving...' : 'Add'}</Button>
+          <Button className="shrink-0" onClick={() => { setNewValue(''); setAdding(false); }}>Cancel</Button>
+        </div>
+      </label>
+    );
+  }
+
+  return (
+    <Select label={label} hint={hint} className={className} value={value ?? ''}
+      onChange={(e) => {
+        if (e.target.value === '__add__') setAdding(true);
+        else onChange(e.target.value);
+      }}>
+      <option value="">{placeholder}</option>
+      {options.map(o => <option key={o} value={o}>{o}</option>)}
+      <option value="__add__">{addLabel}</option>
+    </Select>
+  );
+}
+
 /* ---------------- Card / Page header ---------------- */
 export function Card({ title, subtitle, actions, children, className, pad = true }) {
   return (
@@ -151,6 +206,25 @@ export function Confirm({ title, message, onCancel, onConfirm, confirmText = 'Co
         </>
       }>
       <p className="text-sm text-slate-600">{message}</p>
+    </Modal>
+  );
+}
+
+/** Dangerous confirmation requiring the user to type an exact word (e.g. "DELETE"). */
+export function ConfirmText({ title, message, onCancel, onConfirm, confirmText = 'DELETE', placeholder, danger = true }) {
+  const [val, setVal] = useState('');
+  const enabled = val.trim() === confirmText;
+  return (
+    <Modal title={title} onClose={onCancel}
+      footer={
+        <>
+          <Button onClick={onCancel}>Cancel</Button>
+          <Button variant={danger ? 'danger' : 'primary'} disabled={!enabled} onClick={onConfirm}>Proceed</Button>
+        </>
+      }>
+      <p className="text-sm text-slate-600 mb-3">{message}</p>
+      <Input placeholder={placeholder || `Type "${confirmText}" to confirm`} value={val}
+        onChange={(e) => setVal(e.target.value)} autoFocus />
     </Modal>
   );
 }

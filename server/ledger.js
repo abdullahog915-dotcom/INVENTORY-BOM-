@@ -56,9 +56,9 @@ export function postStockTransaction(p) {
 
   const info = db
     .prepare(`INSERT INTO stock_ledger
-      (item_id, txn_date, txn_type, qty, rate, value, balance_qty, balance_value, reference_type, reference_id, remarks)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(item.item_id, txnDate, p.txn_type, qty, round2(rate), value, newQty, newValue,
+      (company_id, item_id, txn_date, txn_type, qty, rate, value, balance_qty, balance_value, reference_type, reference_id, remarks)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(item.company_id, item.item_id, txnDate, p.txn_type, qty, round2(rate), value, newQty, newValue,
       p.reference_type || null, p.reference_id || null, p.remarks || null);
 
   db.prepare(

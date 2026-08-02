@@ -22,8 +22,8 @@ const JW_SELECT = `SELECT j.*, v.vendor_name, i.sku, i.item_name, i.unit
 
 router.get('/jobwork', (req, res) => {
   const { pending_only = '0', status = '', search = '' } = req.query;
-  let sql = JW_SELECT + ` WHERE 1=1`;
-  const params = [];
+  let sql = JW_SELECT + ` WHERE j.company_id=?`;
+  const params = [req.companyId];
   if (pending_only === '1') { sql += ` AND j.status IN ('SENT','PARTIAL_RECEIVED')`; }
   if (status) { sql += ` AND j.status=?`; params.push(status); }
   if (search) { sql += ` AND (j.jw_no LIKE ? OR i.item_name LIKE ? OR v.vendor_name LIKE ?)`; params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
@@ -32,7 +32,7 @@ router.get('/jobwork', (req, res) => {
 });
 
 router.get('/jobwork/:id', (req, res) => {
-  const jw = db.prepare(JW_SELECT + ` WHERE j.jw_id=?`).get(req.params.id);
+  const jw = db.prepare(JW_SELECT + ` WHERE j.jw_id=? AND j.company_id=?`).get(req.params.id, req.companyId);
   if (!jw) return res.status(404).json({ error: 'Job work order not found' });
   res.json(jw);
 });
@@ -40,7 +40,7 @@ router.get('/jobwork/:id', (req, res) => {
 router.post('/jobwork', (req, res) => {
   const { vendor_id, item_id, qty_sent, job_charges, sent_date, remarks } = req.body;
   if (!item_id || !(Number(qty_sent) > 0)) return res.status(400).json({ error: 'item_id and qty_sent > 0 required' });
-  const item = db.prepare('SELECT * FROM items WHERE item_id=?').get(item_id);
+  const item = db.prepare('SELECT * FROM items WHERE item_id=? AND company_id=?').get(item_id, req.companyId);
   if (!item) return res.status(404).json({ error: 'Item not found' });
   if (item.current_stock_qty < Number(qty_sent)) {
     return res.status(400).json({ error: `Insufficient stock: available ${item.current_stock_qty} ${item.unit}, sending ${qty_sent}` });
@@ -49,9 +49,9 @@ router.post('/jobwork', (req, res) => {
   const tx = db.transaction(() => {
     const jwNo = nextJwNo();
     const info = db.prepare(`INSERT INTO job_work_orders
-        (jw_no, vendor_id, item_id, qty_sent, job_charges, status, sent_date, remarks)
-        VALUES (?,?,?,?,?, 'SENT', ?, ?)`)
-      .run(jwNo, vendor_id || null, item_id, Number(qty_sent), Number(job_charges) || 0,
+        (company_id, jw_no, vendor_id, item_id, qty_sent, job_charges, status, sent_date, remarks)
+        VALUES (?,?,?,?,?,?, 'SENT', ?, ?)`)
+      .run(req.companyId, jwNo, vendor_id || null, item_id, Number(qty_sent), Number(job_charges) || 0,
         sent_date || now(), remarks || null);
     postStockTransaction({
       item_id,
@@ -74,7 +74,7 @@ router.post('/jobwork', (req, res) => {
 });
 
 router.post('/jobwork/:id/receive', (req, res) => {
-  const jw = db.prepare('SELECT * FROM job_work_orders WHERE jw_id=?').get(req.params.id);
+  const jw = db.prepare('SELECT * FROM job_work_orders WHERE jw_id=? AND company_id=?').get(req.params.id, req.companyId);
   if (!jw) return res.status(404).json({ error: 'Job work order not found' });
   if (jw.status === 'RECEIVED') return res.status(400).json({ error: 'Already fully received' });
   if (jw.status === 'CANCELLED') return res.status(400).json({ error: 'Order is cancelled' });
@@ -112,7 +112,7 @@ router.post('/jobwork/:id/receive', (req, res) => {
 });
 
 router.post('/jobwork/:id/cancel', (req, res) => {
-  const jw = db.prepare('SELECT * FROM job_work_orders WHERE jw_id=?').get(req.params.id);
+  const jw = db.prepare('SELECT * FROM job_work_orders WHERE jw_id=? AND company_id=?').get(req.params.id, req.companyId);
   if (!jw) return res.status(404).json({ error: 'Job work order not found' });
   if (jw.qty_received > 0) return res.status(400).json({ error: 'Cannot cancel after partial receipt' });
 

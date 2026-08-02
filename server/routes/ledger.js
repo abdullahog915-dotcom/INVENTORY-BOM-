@@ -7,8 +7,8 @@ const router = Router();
 router.get('/', (req, res) => {
   const { item_id = '', from = '', to = '', type = '', search = '' } = req.query;
   let sql = `SELECT sl.*, i.sku, i.item_name, i.item_type, i.unit, i.category
-             FROM stock_ledger sl JOIN items i ON i.item_id=sl.item_id WHERE 1=1`;
-  const params = [];
+             FROM stock_ledger sl JOIN items i ON i.item_id=sl.item_id WHERE sl.company_id=?`;
+  const params = [req.companyId];
   if (item_id) { sql += ` AND sl.item_id=?`; params.push(item_id); }
   if (from) { sql += ` AND date(sl.txn_date) >= date(?)`; params.push(from); }
   if (to) { sql += ` AND date(sl.txn_date) <= date(?)`; params.push(to); }
@@ -17,7 +17,7 @@ router.get('/', (req, res) => {
   sql += ` ORDER BY sl.txn_date, sl.ledger_id`;
   const rows = db.prepare(sql).all(...params);
 
-  const itemMeta = item_id ? db.prepare('SELECT * FROM items WHERE item_id=?').get(item_id) : null;
+  const itemMeta = item_id ? db.prepare('SELECT * FROM items WHERE item_id=? AND company_id=?').get(item_id, req.companyId) : null;
   let opening = { qty: 0, value: 0 };
   if (itemMeta) {
     const o = db.prepare(`SELECT balance_qty, balance_value FROM stock_ledger
