@@ -98,7 +98,8 @@ export default function Settings() {
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
-        setField('logo', canvas.toDataURL('image/jpeg', 0.8));
+        // PNG keeps alpha — JPEG would flatten transparent areas to black.
+        setField('logo', canvas.toDataURL('image/png'));
       };
       img.onerror = () => toast('Could not read that image file', 'error');
       img.src = dataUrl;
