@@ -135,7 +135,7 @@ export function PageHeader({ title, subtitle, actions }) {
   );
 }
 
-export function StatCard({ label, value, sub, tone = 'indigo' }) {
+export function StatCard({ label, value, sub, tone = 'indigo', onClick, className }) {
   const tones = {
     indigo: 'text-indigo-700',
     emerald: 'text-emerald-700',
@@ -144,8 +144,18 @@ export function StatCard({ label, value, sub, tone = 'indigo' }) {
     sky: 'text-sky-700',
   };
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+    <div
+      onClick={onClick}
+      className={cx(
+        'bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3',
+        onClick && 'cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all group',
+        className
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 group-hover:text-indigo-600 transition-colors">{label}</div>
+        {onClick && <span className="text-slate-300 group-hover:text-indigo-500 text-xs font-bold transition-colors">→</span>}
+      </div>
       <div className={cx('text-xl font-bold mt-1', tones[tone])}>{value}</div>
       {sub && <div className="text-xs text-slate-500 mt-0.5">{sub}</div>}
     </div>
@@ -259,10 +269,10 @@ export function ToastProvider({ children }) {
 
 /* ---------------- misc constants ---------------- */
 export const ITEM_TYPES = [
-  { value: 'RAW_MATERIAL', label: 'Raw Material / कच्चा माल' },
-  { value: 'SEMI_FINISHED', label: 'Semi-Finished / अर्ध-तैयार' },
-  { value: 'FINISHED_GOOD', label: 'Finished Good / तैयार माल' },
-  { value: 'SCRAP', label: 'Scrap / स्क्रैप' },
+  { value: 'RAW_MATERIAL', label: 'Raw Material' },
+  { value: 'SEMI_FINISHED', label: 'Semi-Finished' },
+  { value: 'FINISHED_GOOD', label: 'Finished Good' },
+  { value: 'SCRAP', label: 'Scrap' },
 ];
 export const UNITS = ['kg', 'pcs', 'meter', 'sq.ft', 'liter', 'g', 'set', 'dozen'];
 export const GST_SLABS = [0, 5, 12, 18, 28];

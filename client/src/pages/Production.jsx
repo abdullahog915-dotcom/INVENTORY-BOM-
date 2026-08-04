@@ -122,7 +122,7 @@ export default function Production() {
 
   return (
     <div>
-      <PageHeader title="Production Orders / उत्पादन आदेश"
+      <PageHeader title="Production Orders"
         subtitle="Plan production from BOM, check stock, complete with actual consumption and scrap"
         actions={<Button variant="primary" onClick={() => setCreateModal(true)}>+ New Production Order</Button>} />
 
@@ -130,9 +130,9 @@ export default function Production() {
         <div className="p-3 flex gap-2">
           <Select value={filter.status} onChange={e => setFilter(f => ({ ...f, status: e.target.value }))} className="w-56">
             <option value="">All Status</option>
-            <option value="PLANNED">Planned / नियोजित</option>
+            <option value="PLANNED">Planned</option>
             <option value="IN_PROGRESS">In Progress</option>
-            <option value="COMPLETED">Completed / पूर्ण</option>
+            <option value="COMPLETED">Completed</option>
             <option value="CANCELLED">Cancelled</option>
           </Select>
         </div>
@@ -165,7 +165,7 @@ export default function Production() {
 
       {/* Create order */}
       {createModal && (
-        <Modal title="New Production Order / नया उत्पादन आदेश" onClose={() => setCreateModal(false)} wide
+        <Modal title="New Production Order" onClose={() => setCreateModal(false)} wide
           footer={<>
             <Button onClick={() => setCreateModal(false)}>Cancel</Button>
             <Button variant="primary" onClick={createOrder} disabled={busy}>{busy ? 'Creating...' : 'Create Order'}</Button>
@@ -184,7 +184,7 @@ export default function Production() {
           {preview && (
             <div className="bg-slate-50 rounded-lg border border-slate-200 p-3">
               <div className="flex justify-between items-center mb-2">
-                <h4 className="text-sm font-bold text-slate-700">Required Raw Materials / कच्चा माल आवश्यकता</h4>
+                <h4 className="text-sm font-bold text-slate-700">Required Raw Materials</h4>
                 <span className="text-sm font-bold text-indigo-700">Est. Cost: {inr(preview.total)}</span>
               </div>
               <DataTable
@@ -231,7 +231,7 @@ export default function Production() {
           {detail.status === 'PLANNED' && (
             <div className="mb-4 bg-slate-50 rounded-lg border border-slate-200 p-3">
               <div className="flex justify-between mb-2">
-                <h4 className="text-sm font-bold text-slate-700">Raw Material Requirement / कच्चा माल आवश्यकता</h4>
+                <h4 className="text-sm font-bold text-slate-700">Raw Material Requirement</h4>
                 <Button variant="ghost" onClick={checkStock}>Check Stock Availability</Button>
               </div>
               <DataTable
@@ -253,7 +253,7 @@ export default function Production() {
 
           {detail.status === 'COMPLETED' && (
             <>
-              <h4 className="text-sm font-bold text-slate-700 mb-2">Consumption / उपभोग</h4>
+              <h4 className="text-sm font-bold text-slate-700 mb-2">Consumption</h4>
               <DataTable
                 keyField="consumption_id"
                 rows={detail.consumption}
@@ -269,7 +269,7 @@ export default function Production() {
               />
               {detail.scrap.length > 0 && (
                 <>
-                  <h4 className="text-sm font-bold text-slate-700 mt-4 mb-2">Scrap Generated / स्क्रैप</h4>
+                  <h4 className="text-sm font-bold text-slate-700 mt-4 mb-2">Scrap Generated</h4>
                   <DataTable
                     keyField="scrap_id"
                     rows={detail.scrap}
@@ -296,13 +296,13 @@ export default function Production() {
             <Button variant="success" onClick={complete} disabled={busy}>{busy ? 'Completing...' : 'Complete Production'}</Button>
           </>}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            <Input label="Completed Qty * / पूर्ण मात्रा" type="number" step="any" min="0"
+            <Input label="Completed Qty *" type="number" step="any" min="0"
               value={completeForm.completed_qty} onChange={e => setCompleteForm(f => ({ ...f, completed_qty: e.target.value }))} />
             <Input label="Actual Labor Cost (₹)" type="number" step="any" value={completeForm.labor_cost} onChange={e => setCompleteForm(f => ({ ...f, labor_cost: e.target.value }))} />
             <Input label="Overhead %" type="number" step="any" value={completeForm.overhead_pct} onChange={e => setCompleteForm(f => ({ ...f, overhead_pct: e.target.value }))} />
           </div>
 
-          <h4 className="text-sm font-bold text-slate-700 mb-2">Actual Consumption (edit if actual wastage differs) / वास्तविक उपभोग</h4>
+          <h4 className="text-sm font-bold text-slate-700 mb-2">Actual Consumption (edit if actual wastage differs)</h4>
           <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg mb-4">
             <table className="min-w-full divide-y divide-slate-100 text-sm">
               <thead><tr className="bg-slate-50 text-slate-500 text-[11px] uppercase">

@@ -55,7 +55,7 @@ export default function Ledger() {
 
   return (
     <div>
-      <PageHeader title="Stock Ledger / स्टॉक लेज़र"
+      <PageHeader title="Stock Ledger"
         subtitle="Complete transaction trail with running balance — every stock movement"
         actions={data && (
           <ExportCSV filename="stock-ledger.csv" columns={csvColumns} rows={data.transactions.map(t => ({ ...t, txn_type: SHORT[t.txn_type] || t.txn_type }))} />
@@ -64,11 +64,11 @@ export default function Ledger() {
       <Card className="mb-4" pad={false}>
         <div className="p-3 flex flex-wrap items-end gap-2">
           <Select value={filters.item_id} onChange={e => setFilters(f => ({ ...f, item_id: e.target.value }))} className="w-72">
-            <option value="">All Items / सभी आइटम</option>
+            <option value="">All Items</option>
             {items.map(i => <option key={i.item_id} value={i.item_id}>{i.sku} — {i.item_name}</option>)}
           </Select>
           <Select value={filters.type} onChange={e => setFilters(f => ({ ...f, type: e.target.value }))} className="w-60">
-            <option value="">All Types / सभी प्रकार</option>
+            <option value="">All Types</option>
             {Object.entries(types).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </Select>
           <DateRange from={filters.from} to={filters.to} onChange={v => setFilters(f => ({ ...f, ...v }))} />

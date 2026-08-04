@@ -16,23 +16,23 @@ import Reports from './pages/Reports.jsx';
 import Settings from './pages/Settings.jsx';
 
 const NAV = [
-  { id: 'dashboard', label: 'Dashboard', hi: 'डैशबोर्ड' },
-  { section: 'Masters / मास्टर' },
-  { id: 'items', label: 'Item Master', hi: 'आइटम मास्टर' },
-  { id: 'customers', label: 'Customers', hi: 'ग्राहक' },
-  { id: 'vendors', label: 'Vendors', hi: 'विक्रेता' },
-  { id: 'bom', label: 'BOM (Bill of Materials)', hi: 'बीओएम' },
-  { section: 'Transactions / लेन-देन' },
-  { id: 'production', label: 'Production', hi: 'उत्पादन' },
-  { id: 'purchase', label: 'Purchase', hi: 'खरीद' },
-  { id: 'sales', label: 'Sales', hi: 'बिक्री' },
-  { id: 'jobwork', label: 'Job Work', hi: 'जॉब वर्क' },
-  { id: 'adjustments', label: 'Adjustments / Scrap', hi: 'समायोजन' },
-  { section: 'Reports / रिपोर्ट' },
-  { id: 'reports', label: 'Reports', hi: 'रिपोर्ट' },
-  { id: 'ledger', label: 'Stock Ledger', hi: 'स्टॉक लेज़र' },
-  { section: 'System / सिस्टम' },
-  { id: 'settings', label: 'Settings', hi: 'सेटिंग्स' },
+  { id: 'dashboard', label: 'Dashboard' },
+  { section: 'Masters' },
+  { id: 'items', label: 'Item Master' },
+  { id: 'customers', label: 'Customers' },
+  { id: 'vendors', label: 'Vendors' },
+  { id: 'bom', label: 'BOM (Bill of Materials)' },
+  { section: 'Transactions' },
+  { id: 'production', label: 'Production' },
+  { id: 'purchase', label: 'Purchase' },
+  { id: 'sales', label: 'Sales' },
+  { id: 'jobwork', label: 'Job Work' },
+  { id: 'adjustments', label: 'Adjustments / Scrap' },
+  { section: 'Reports' },
+  { id: 'reports', label: 'Reports' },
+  { id: 'ledger', label: 'Stock Ledger' },
+  { section: 'System' },
+  { id: 'settings', label: 'Settings' },
 ];
 
 function Shell() {
@@ -46,9 +46,12 @@ function Shell() {
     <div className="min-h-screen flex">
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-60 bg-slate-900 text-slate-200 flex flex-col transform transition-transform lg:static lg:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="px-4 py-4 border-b border-slate-700/60">
-          <div className="font-bold text-white text-sm leading-tight">Craft ERP</div>
-          <div className="text-[11px] text-slate-400 mt-0.5">Inventory + BOM / इन्वेंट्री</div>
+        <div className="px-4 py-4 border-b border-slate-700/60 cursor-pointer hover:bg-slate-800/60 transition-colors" onClick={() => go('dashboard')} title="Go to Dashboard">
+          <div className="font-bold text-white text-sm leading-tight flex items-center justify-between">
+            <span>Craft ERP</span>
+            <span className="text-[10px] bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded font-mono">v1.0</span>
+          </div>
+          <div className="text-[11px] text-slate-400 mt-0.5">Inventory + BOM</div>
         </div>
         <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
           {NAV.map((item, i) =>
@@ -59,11 +62,10 @@ function Shell() {
                 key={i}
                 onClick={() => go(item.id)}
                 className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors cursor-pointer ${
-                  page === item.id ? 'bg-indigo-600 text-white font-semibold' : 'hover:bg-slate-800 text-slate-300'
+                  page === item.id ? 'bg-indigo-600 text-white font-semibold shadow-sm' : 'hover:bg-slate-800 text-slate-300'
                 }`}
               >
                 <div>{item.label}</div>
-                <div className={`text-[10px] ${page === item.id ? 'text-indigo-200' : 'text-slate-500'}`}>{item.hi}</div>
               </button>
             )
           )}
@@ -79,8 +81,11 @@ function Shell() {
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200 px-4 py-2.5 flex items-center gap-3">
           <button className="text-slate-600 text-xl cursor-pointer lg:hidden" onClick={() => setMenuOpen(true)}>☰</button>
-          <div className="min-w-0 flex-1">
-            <div className="font-bold text-sm truncate">{current?.name || 'Craft ERP'}</div>
+          <div className="min-w-0 flex-1 cursor-pointer group" onClick={() => setPage('dashboard')} title="Click to open Dashboard">
+            <div className="font-bold text-sm truncate text-slate-800 group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
+              <span>{current?.name || 'Craft ERP'}</span>
+              <span className="text-[10px] text-indigo-600 font-normal bg-indigo-50 px-1.5 py-0.2 rounded group-hover:bg-indigo-100">Dashboard</span>
+            </div>
             <div className="text-[11px] text-slate-400 truncate">{current?.gstin ? `GSTIN ${current.gstin}` : (current?.state || '')}</div>
           </div>
           {ready && companies.length > 0 && (

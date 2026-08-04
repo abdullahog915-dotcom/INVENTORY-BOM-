@@ -160,27 +160,27 @@ function seedCompanyData(companyId) {
   console.log(`Seeding demo data for company #${companyId}...`);
   const tx = db.transaction(() => {
     /* ---- Items ---- */
-    const brassIngot = addItem(companyId, 'RM-BRASS-001', 'Brass Ingot (पीतल ढलाई)', 'RAW_MATERIAL', 'Brass', 'Metals', 'kg', '7403', 18, 100);
-    const aluIngot = addItem(companyId, 'RM-ALU-001', 'Aluminium Ingot (एल्युमिनियम ढलाई)', 'RAW_MATERIAL', 'Aluminium', 'Metals', 'kg', '7601', 18, 80);
-    const ironSheet = addItem(companyId, 'RM-IRON-001', 'Iron Sheet (लोहा शीट)', 'RAW_MATERIAL', 'Iron', 'Metals', 'kg', '7208', 18, 60);
-    const clay = addItem(companyId, 'RM-CERAMIC-001', 'Ceramic Clay (सिरेमिक मिट्टी)', 'RAW_MATERIAL', 'Ceramic', 'Raw Materials', 'kg', '2508', 5, 150);
-    const wire = addItem(companyId, 'RM-WIRE-001', 'Copper Wire (तांबा तार)', 'RAW_MATERIAL', 'Wiring', 'Raw Materials', 'meter', '7408', 18, 50);
-    const cotton = addItem(companyId, 'RM-COTTON-001', 'Cotton Cloth (सूती कपड़ा)', 'RAW_MATERIAL', 'Fabric', 'Raw Materials', 'meter', '5208', 5, 40);
-    const polish = addItem(companyId, 'RM-POLISH-001', 'Metal Polish Compound (पॉलिश)', 'RAW_MATERIAL', 'Finishing', 'Consumables', 'kg', '3405', 18, 10);
-    const box = addItem(companyId, 'RM-BOX-001', 'Packing Box (पैकिंग बॉक्स)', 'RAW_MATERIAL', 'Packing', 'Consumables', 'pcs', '4819', 18, 100);
+    const brassIngot = addItem(companyId, 'RM-BRASS-001', 'Brass Ingot', 'RAW_MATERIAL', 'Brass', 'Metals', 'kg', '7403', 18, 100);
+    const aluIngot = addItem(companyId, 'RM-ALU-001', 'Aluminium Ingot', 'RAW_MATERIAL', 'Aluminium', 'Metals', 'kg', '7601', 18, 80);
+    const ironSheet = addItem(companyId, 'RM-IRON-001', 'Iron Sheet', 'RAW_MATERIAL', 'Iron', 'Metals', 'kg', '7208', 18, 60);
+    const clay = addItem(companyId, 'RM-CERAMIC-001', 'Ceramic Clay', 'RAW_MATERIAL', 'Ceramic', 'Raw Materials', 'kg', '2508', 5, 150);
+    const wire = addItem(companyId, 'RM-WIRE-001', 'Copper Wire', 'RAW_MATERIAL', 'Wiring', 'Raw Materials', 'meter', '7408', 18, 50);
+    const cotton = addItem(companyId, 'RM-COTTON-001', 'Cotton Cloth', 'RAW_MATERIAL', 'Fabric', 'Raw Materials', 'meter', '5208', 5, 40);
+    const polish = addItem(companyId, 'RM-POLISH-001', 'Metal Polish Compound', 'RAW_MATERIAL', 'Finishing', 'Consumables', 'kg', '3405', 18, 10);
+    const box = addItem(companyId, 'RM-BOX-001', 'Packing Box', 'RAW_MATERIAL', 'Packing', 'Consumables', 'pcs', '4819', 18, 100);
 
-    const body = addItem(companyId, 'SF-BODY-001', 'Brass Lamp Body (पीतल बॉडी)', 'SEMI_FINISHED', 'Brass', 'Components', 'pcs', '', 18, 20);
-    const shade = addItem(companyId, 'SF-SHADE-001', 'Ceramic Shade (सिरेमिक शेड)', 'SEMI_FINISHED', 'Ceramic', 'Components', 'pcs', '', 5, 20);
-    const base = addItem(companyId, 'SF-BASE-001', 'Iron Lamp Base (लोहा बेस)', 'SEMI_FINISHED', 'Iron', 'Components', 'pcs', '', 18, 15);
-    const aluBody = addItem(companyId, 'SF-ALU-001', 'Aluminium Lamp Body (एल्युमिनियम बॉडी)', 'SEMI_FINISHED', 'Aluminium', 'Components', 'pcs', '', 18, 15);
+    const body = addItem(companyId, 'SF-BODY-001', 'Brass Lamp Body', 'SEMI_FINISHED', 'Brass', 'Components', 'pcs', '', 18, 20);
+    const shade = addItem(companyId, 'SF-SHADE-001', 'Ceramic Shade', 'SEMI_FINISHED', 'Ceramic', 'Components', 'pcs', '', 5, 20);
+    const base = addItem(companyId, 'SF-BASE-001', 'Iron Lamp Base', 'SEMI_FINISHED', 'Iron', 'Components', 'pcs', '', 18, 15);
+    const aluBody = addItem(companyId, 'SF-ALU-001', 'Aluminium Lamp Body', 'SEMI_FINISHED', 'Aluminium', 'Components', 'pcs', '', 18, 15);
 
-    const lamp1 = addItem(companyId, 'FG-LAMP-001', 'Brass Table Lamp (पीतल टेबल लैंप)', 'FINISHED_GOOD', 'Lamps', 'Finished Goods', 'pcs', '9405', 18, 10, 2400);
-    const lamp2 = addItem(companyId, 'FG-LAMP-002', 'Aluminium Hanging Lamp (एल्युमिनियम लटकन लैंप)', 'FINISHED_GOOD', 'Lamps', 'Finished Goods', 'pcs', '9405', 18, 10, 1800);
-    const holder = addItem(companyId, 'FG-DECOR-001', 'Brass Candle Holder (पीतल कैंडल स्टैंड)', 'FINISHED_GOOD', 'Decor', 'Finished Goods', 'pcs', '9405', 18, 15, 650);
+    const lamp1 = addItem(companyId, 'FG-LAMP-001', 'Brass Table Lamp', 'FINISHED_GOOD', 'Lamps', 'Finished Goods', 'pcs', '9405', 18, 10, 2400);
+    const lamp2 = addItem(companyId, 'FG-LAMP-002', 'Aluminium Hanging Lamp', 'FINISHED_GOOD', 'Lamps', 'Finished Goods', 'pcs', '9405', 18, 10, 1800);
+    const holder = addItem(companyId, 'FG-DECOR-001', 'Brass Candle Holder', 'FINISHED_GOOD', 'Decor', 'Finished Goods', 'pcs', '9405', 18, 15, 650);
 
-    const brassScrap = addItem(companyId, 'SC-BRASS-001', 'Brass Scrap (पीतल स्क्रैप)', 'SCRAP', 'Brass', 'Scrap', 'kg', '7404', 18, 0, 380);
-    const aluScrap = addItem(companyId, 'SC-ALU-001', 'Aluminium Scrap (एल्युमिनियम स्क्रैप)', 'SCRAP', 'Aluminium', 'Scrap', 'kg', '7602', 18, 0, 140);
-    const ironScrap = addItem(companyId, 'SC-IRON-001', 'Iron Scrap (लोहा स्क्रैप)', 'SCRAP', 'Iron', 'Scrap', 'kg', '7204', 18, 0, 30);
+    const brassScrap = addItem(companyId, 'SC-BRASS-001', 'Brass Scrap', 'SCRAP', 'Brass', 'Scrap', 'kg', '7404', 18, 0, 380);
+    const aluScrap = addItem(companyId, 'SC-ALU-001', 'Aluminium Scrap', 'SCRAP', 'Aluminium', 'Scrap', 'kg', '7602', 18, 0, 140);
+    const ironScrap = addItem(companyId, 'SC-IRON-001', 'Iron Scrap', 'SCRAP', 'Iron', 'Scrap', 'kg', '7204', 18, 0, 30);
 
     /* ---- Vendors ---- */
     const vSharma = addVendor(companyId, 'Sharma Metal Traders', 'SUPPLIER', '98123 45678', '09AABCS1234F1Z5');

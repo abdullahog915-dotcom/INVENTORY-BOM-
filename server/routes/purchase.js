@@ -76,15 +76,21 @@ function getPo(id, companyId) {
     const gross = round2(l.qty_ordered * l.rate);
     const discount = round2(gross * (l.discount_pct || 0) / 100);
     return {
-      gross, discount,
+      gross, discount, weight: l.weight || 0,
       taxable: l.taxable_value, cgst: l.cgst_amount, sgst: l.sgst_amount, igst: l.igst_amount,
     };
-  }));
+  }), (po.other_charges || 0) + (po.freight_charges || 0) + (po.packing_charges || 0) + (po.insurance_charges || 0), po.discount_amount || 0);
+  totals.freight_charges = po.freight_charges || 0;
+  totals.packing_charges = po.packing_charges || 0;
+  totals.insurance_charges = po.insurance_charges || 0;
   const paymentStatus = Number(po.amount_paid) >= totals.grand_total ? 'PAID'
     : Number(po.amount_paid) > 0 ? 'PARTIAL' : 'UNPAID';
   const company = db.prepare('SELECT * FROM companies WHERE company_id=?').get(companyId);
+  let customFields = [];
+  try { customFields = po.custom_fields ? JSON.parse(po.custom_fields) : []; } catch (e) {}
   return {
     ...po,
+    custom_fields: customFields,
     lines,
     totals,
     amount_in_words: numberToWordsINR(totals.grand_total),
@@ -130,25 +136,36 @@ router.post('/purchase', (req, res) => {
   const tx = db.transaction(() => {
     let poNo = b.po_no ? String(b.po_no).trim() : '';
     if (!poNo) poNo = nextPoNo();
+    const customFields = b.custom_fields && Array.isArray(b.custom_fields) ? JSON.stringify(b.custom_fields) : null;
     const info = db.prepare(`INSERT INTO purchase_orders
         (company_id, po_no, vendor_id, vendor_invoice_no, po_date, due_date, place_of_supply,
-         payment_terms, reference_no, status, payment_status, amount_paid, notes, remarks)
-        VALUES (?,?,?,?,?,?,?,?,?, 'PENDING', 'UNPAID', 0, ?,?)`)
-      .run(req.companyId, poNo, vendor?.vendor_id || null, b.vendor_invoice_no || null,
+         payment_terms, reference_no, status, payment_status, amount_paid, notes, remarks,
+         transport_mode, vehicle_no, delivery_date, reverse_charge, eway_bill_no,
+         order_date, challan_no, other_charges,
+         custom_fields, discount_amount, freight_charges, packing_charges, insurance_charges)
+        VALUES (?,?,?,?,?,?,?,?,?, 'PENDING', 'UNPAID', 0, ?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?)`)
+      .run(
+        req.companyId, poNo, vendor?.vendor_id || null, b.vendor_invoice_no || null,
         b.po_date || now(), b.due_date || null, b.place_of_supply || null,
-        b.payment_terms || null, b.reference_no || null, b.notes || null, b.remarks || null);
+        b.payment_terms || null, b.reference_no || null, b.notes || null, b.remarks || null,
+        b.transport_mode || null, b.vehicle_no || null, b.delivery_date || null,
+        b.reverse_charge ? 1 : 0, b.eway_bill_no || null, b.order_date || null,
+        b.challan_no || null, Number(b.other_charges) || 0,
+        customFields, Number(b.discount_amount) || 0, Number(b.freight_charges) || 0,
+        Number(b.packing_charges) || 0, Number(b.insurance_charges) || 0
+      );
     const poId = info.lastInsertRowid;
     const ins = db.prepare(`INSERT INTO purchase_order_lines
-        (po_id, item_id, qty_ordered, qty_received, rate, gst_pct, hsn_code, unit, discount_pct,
+        (po_id, item_id, qty_ordered, qty_received, rate, gst_pct, hsn_code, unit, weight, discount_pct,
          taxable_value, cgst_amount, sgst_amount, igst_amount, line_total)
-        VALUES (?,?,?,0,?,?,?,?,?,?,?,?,?,?)`);
+        VALUES (?,?,?,0,?,?,?,?,?,?,?,?,?,?,?)`);
     for (const l of b.lines) {
       const item = db.prepare('SELECT * FROM items WHERE item_id=? AND company_id=?').get(l.item_id, req.companyId);
       if (!item) throw new Error(`Item #${l.item_id} not found`);
       if (Number(l.qty_ordered) <= 0) throw new Error(`Line for ${item.sku} needs qty > 0`);
       const calc = computeLine({ qty: l.qty_ordered, rate: l.rate, gst_pct: l.gst_pct, discount_pct: l.discount_pct }, same);
       ins.run(poId, item.item_id, Number(l.qty_ordered), Number(l.rate), Number(l.gst_pct) || 0,
-        item.hsn_code, item.unit, Number(l.discount_pct) || 0,
+        item.hsn_code, item.unit, Number(l.weight) || 0, Number(l.discount_pct) || 0,
         calc.taxable, calc.cgst, calc.sgst, calc.igst, calc.line_total);
     }
     return poId;
@@ -168,14 +185,29 @@ router.patch('/purchase/:id', (req, res) => {
   if (!po) return res.status(404).json({ error: 'Purchase order not found' });
   const b = req.body;
   const tx = db.transaction(() => {
+    const customFields = b.custom_fields && Array.isArray(b.custom_fields) ? JSON.stringify(b.custom_fields) : null;
     db.prepare(`UPDATE purchase_orders SET
         vendor_invoice_no=?, due_date=?, place_of_supply=?, payment_terms=?, reference_no=?, notes=?, remarks=?,
-        amount_paid=?
+        amount_paid=?, transport_mode=?, vehicle_no=?, delivery_date=?, reverse_charge=?,
+        eway_bill_no=?, order_date=?, challan_no=?, other_charges=?,
+        custom_fields=?, discount_amount=?, freight_charges=?, packing_charges=?, insurance_charges=?
         WHERE po_id=?`)
-      .run(b.vendor_invoice_no ?? po.vendor_invoice_no, b.due_date ?? po.due_date,
+      .run(
+        b.vendor_invoice_no ?? po.vendor_invoice_no, b.due_date ?? po.due_date,
         b.place_of_supply ?? po.place_of_supply, b.payment_terms ?? po.payment_terms,
         b.reference_no ?? po.reference_no, b.notes ?? po.notes, b.remarks ?? po.remarks,
-        b.amount_paid !== undefined ? round2(Number(b.amount_paid) || 0) : po.amount_paid, po.po_id);
+        b.amount_paid !== undefined ? round2(Number(b.amount_paid) || 0) : po.amount_paid,
+        b.transport_mode ?? po.transport_mode, b.vehicle_no ?? po.vehicle_no,
+        b.delivery_date ?? po.delivery_date, b.reverse_charge !== undefined ? (b.reverse_charge ? 1 : 0) : po.reverse_charge,
+        b.eway_bill_no ?? po.eway_bill_no, b.order_date ?? po.order_date,
+        b.challan_no ?? po.challan_no, b.other_charges !== undefined ? Number(b.other_charges) || 0 : po.other_charges,
+        customFields !== null ? customFields : (po.custom_fields || null),
+        b.discount_amount !== undefined ? Number(b.discount_amount) || 0 : po.discount_amount,
+        b.freight_charges !== undefined ? Number(b.freight_charges) || 0 : po.freight_charges,
+        b.packing_charges !== undefined ? Number(b.packing_charges) || 0 : po.packing_charges,
+        b.insurance_charges !== undefined ? Number(b.insurance_charges) || 0 : po.insurance_charges,
+        po.po_id
+      );
   });
   try {
     tx();

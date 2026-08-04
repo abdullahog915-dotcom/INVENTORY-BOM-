@@ -23,11 +23,11 @@ function computeLine(l, same) {
 }
 
 const statusBadge = (s) => ({
-  DRAFT: <Badge color="slate">Draft / ड्राफ्ट</Badge>,
-  SENT: <Badge color="sky">Sent / भेजा</Badge>,
-  PAID: <Badge color="green">Paid / भुगतान</Badge>,
-  OVERDUE: <Badge color="red">Overdue / अतिदेय</Badge>,
-  CANCELLED: <Badge color="red">Cancelled / रद्द</Badge>,
+  DRAFT: <Badge color="slate">Draft</Badge>,
+  SENT: <Badge color="sky">Sent</Badge>,
+  PAID: <Badge color="green">Paid</Badge>,
+  OVERDUE: <Badge color="red">Overdue</Badge>,
+  CANCELLED: <Badge color="red">Cancelled</Badge>,
 }[s] || s);
 
 const emptyLine = () => ({ item_id: '', qty: 1, rate: 0, discount_pct: 0, gst_pct: 18 });
@@ -175,7 +175,7 @@ export default function Sales() {
 
   return (
     <div>
-      <PageHeader title="Sales Invoices / बिक्री चालान" subtitle="GST invoices with CGST/SGST/IGST split and stock posting on SENT"
+      <PageHeader title="Sales Invoices" subtitle="GST invoices with CGST/SGST/IGST split and stock posting on SENT"
         actions={<Button variant="primary" onClick={openNew}>+ New Invoice</Button>} />
 
       <Card className="mb-4" pad={false}>
@@ -211,7 +211,7 @@ export default function Sales() {
 
       {/* ---------- New invoice ---------- */}
       {createModal && (
-        <Modal title="New Sales Invoice / नया चालान" onClose={() => setCreateModal(false)} wide
+        <Modal title="New Sales Invoice" onClose={() => setCreateModal(false)} wide
           footer={<>
             <Button onClick={() => setCreateModal(false)}>Cancel</Button>
             <Button variant="primary" onClick={createInvoice} disabled={busy}>{busy ? 'Creating...' : 'Save as Draft'}</Button>
@@ -259,7 +259,7 @@ export default function Sales() {
           </div>
 
           <div className="flex justify-between items-center mb-2">
-            <h4 className="text-sm font-bold text-slate-700">Items / मद</h4>
+            <h4 className="text-sm font-bold text-slate-700">Items</h4>
             <Button variant="ghost" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, emptyLine()] }))}>+ Add Line</Button>
           </div>
           {form.lines.map((line, i) => {
@@ -397,7 +397,7 @@ export default function Sales() {
 
           {detail.status !== 'CANCELLED' && detail.stock_posted === 1 && detail.lines.some(l => l.qty - l.qty_returned > 0) && (
             <div className="flex flex-wrap gap-2 items-center justify-between bg-slate-50 rounded-lg p-2">
-              <span className="text-xs font-semibold text-slate-600">Record return / वापसी</span>
+              <span className="text-xs font-semibold text-slate-600">Record return</span>
               <div className="flex gap-2">
                 <Select value="" onChange={e => {
                   const line = detail.lines.find(l => l.line_id === Number(e.target.value));

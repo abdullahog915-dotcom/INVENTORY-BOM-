@@ -41,7 +41,7 @@ export default function Dashboard({ go }) {
           <h1 className="text-xl font-bold text-slate-800">Dashboard</h1>
           <p className="text-sm text-slate-500">Overview of stock, production and pending work</p>
         </div>
-        <Button onClick={load}>Refresh / ताज़ा करें</Button>
+        <Button onClick={load}>Refresh</Button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
@@ -74,7 +74,7 @@ export default function Dashboard({ go }) {
           </div>
         </Card>
 
-        <Card title="Low Stock Alerts / कम स्टॉक" className="xl:col-span-1">
+        <Card title="Low Stock Alerts" className="xl:col-span-1">
           {data.low_stock.items.length === 0 ? (
             <div className="text-sm text-slate-400 py-6 text-center">No low stock items</div>
           ) : (
@@ -113,7 +113,7 @@ export default function Dashboard({ go }) {
         </Card>
       </div>
 
-      <Card title="Recent Transactions / हाल के लेन-देन">
+      <Card title="Recent Transactions">
         <DataTable
           keyField="ledger_id"
           rows={data.recent_transactions}

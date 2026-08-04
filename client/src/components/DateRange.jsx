@@ -2,7 +2,7 @@ import React from 'react';
 import { Input } from './ui.jsx';
 import { daysAgo } from '../utils.js';
 
-export default function DateRange({ from, to, onChange, label = 'Date Range / अवधि' }) {
+export default function DateRange({ from, to, onChange, label = 'Date Range' }) {
   return (
     <div className="flex items-end gap-2">
       <Input type="date" value={from} label={label} onChange={e => onChange({ from: e.target.value, to })} />

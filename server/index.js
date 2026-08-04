@@ -26,7 +26,8 @@ const PORT = process.env.PORT || 3001;
 ensureSeed();
 
 const app = express();
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /* Company scoping: every /api request resolves a company from the X-Company-Id header
    (defaulting to the default company), stored on req.companyId. */

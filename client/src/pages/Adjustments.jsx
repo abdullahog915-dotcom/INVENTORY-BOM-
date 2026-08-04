@@ -40,11 +40,11 @@ export default function Adjustments() {
 
   return (
     <div>
-      <PageHeader title="Adjustments & Scrap / समायोजन"
+      <PageHeader title="Adjustments & Scrap"
         subtitle="Manual stock corrections and scrap disposal (SCRAP OUT)"
         actions={<Button variant="primary" onClick={() => setModal(true)}>+ New Adjustment</Button>} />
 
-      <Card title="Scrap Stock / स्क्रैप स्टॉक" className="mb-4" pad={false}>
+      <Card title="Scrap Stock" className="mb-4" pad={false}>
         <DataTable
           keyField="item_id"
           rows={scrapItems}
@@ -61,7 +61,7 @@ export default function Adjustments() {
         />
       </Card>
 
-      <Card title="Recent Adjustments / हाल के समायोजन" pad={false}>
+      <Card title="Recent Adjustments" pad={false}>
         <DataTable
           keyField="ledger_id"
           rows={history}
@@ -78,7 +78,7 @@ export default function Adjustments() {
       </Card>
 
       {modal && (
-        <Modal title="New Stock Adjustment / नया समायोजन" onClose={() => setModal(false)}
+        <Modal title="New Stock Adjustment" onClose={() => setModal(false)}
           footer={<>
             <Button onClick={() => setModal(false)}>Cancel</Button>
             <Button variant="primary" onClick={post} disabled={busy}>{busy ? 'Posting...' : 'Post Adjustment'}</Button>
@@ -89,9 +89,9 @@ export default function Adjustments() {
               {items.map(i => <option key={i.item_id} value={i.item_id}>{i.sku} — {i.item_name} (stock {fmt(i.current_stock_qty)} {i.unit})</option>)}
             </Select>
             <Select label="Transaction Type" value={form.txn_type} onChange={e => setForm(f => ({ ...f, txn_type: e.target.value }))}>
-              <option value="ADJUSTMENT_IN">Adjustment IN / स्टॉक बढ़ाएं</option>
-              <option value="ADJUSTMENT_OUT">Adjustment OUT / स्टॉक घटाएं</option>
-              <option value="SCRAP_OUT">Scrap OUT (dispose/sell) / स्क्रैप निकालें</option>
+              <option value="ADJUSTMENT_IN">Adjustment IN</option>
+              <option value="ADJUSTMENT_OUT">Adjustment OUT</option>
+              <option value="SCRAP_OUT">Scrap OUT (dispose/sell)</option>
             </Select>
             <Input label="Qty *" type="number" step="any" min="0" value={form.qty} onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} />
             <Input label="Rate (₹, optional — default avg cost)" type="number" step="any" value={form.rate} onChange={e => setForm(f => ({ ...f, rate: e.target.value }))} />

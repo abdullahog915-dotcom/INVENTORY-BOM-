@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
@@ -9,7 +9,26 @@ export const DB_PATH = path.join(DATA_DIR, 'craft-erp.db');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-export const db = new Database(DB_PATH);
+export const db = new DatabaseSync(DB_PATH);
+db.pragma = function (sql) {
+  try {
+    db.exec(`PRAGMA ${sql};`);
+  } catch (e) {}
+};
+db.transaction = function (fn) {
+  return function (...args) {
+    db.exec('BEGIN IMMEDIATE;');
+    try {
+      const res = fn.apply(this, args);
+      db.exec('COMMIT;');
+      return res;
+    } catch (err) {
+      db.exec('ROLLBACK;');
+      throw err;
+    }
+  };
+};
+
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
@@ -308,15 +327,15 @@ export const LEDGER_IN_TYPES = new Set([
 ]);
 
 export const LEDGER_TXN_LABELS = {
-  PURCHASE_IN: 'Purchase IN / खरीद आगमन',
-  PRODUCTION_OUTPUT_IN: 'Production Output IN / उत्पादन आगमन',
-  PRODUCTION_CONSUMPTION_OUT: 'Production Consumption OUT / उत्पादन उपभोग',
-  SALES_OUT: 'Sales OUT / बिक्री निकास',
-  SALES_RETURN_IN: 'Sales Return IN / वापसी आगमन',
-  SCRAP_IN: 'Scrap IN / स्क्रैप आगमन',
-  SCRAP_OUT: 'Scrap OUT / स्क्रैप निकास',
-  JOB_WORK_SENT_OUT: 'Job Work Sent OUT / जॉब वर्क भेजा',
-  JOB_WORK_RECEIVED_IN: 'Job Work Received IN / जॉब वर्क प्राप्त',
-  ADJUSTMENT_IN: 'Adjustment IN / समायोजन',
-  ADJUSTMENT_OUT: 'Adjustment OUT / समायोजन',
+  PURCHASE_IN: 'Purchase IN',
+  PRODUCTION_OUTPUT_IN: 'Production Output IN',
+  PRODUCTION_CONSUMPTION_OUT: 'Production Consumption OUT',
+  SALES_OUT: 'Sales OUT',
+  SALES_RETURN_IN: 'Sales Return IN',
+  SCRAP_IN: 'Scrap IN',
+  SCRAP_OUT: 'Scrap OUT',
+  JOB_WORK_SENT_OUT: 'Job Work Sent OUT',
+  JOB_WORK_RECEIVED_IN: 'Job Work Received IN',
+  ADJUSTMENT_IN: 'Adjustment IN',
+  ADJUSTMENT_OUT: 'Adjustment OUT',
 };

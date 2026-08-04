@@ -6,7 +6,7 @@ import { fmt, inr, fmtDate, amountInWords } from '../utils.js';
  * kind: 'SALES' | 'PURCHASE'
  */
 export default function InvoiceDoc({ kind, company = {}, party = {}, doc = {}, lines = [], totals = {}, amount_in_words, returns = [] }) {
-  const title = kind === 'SALES' ? 'TAX INVOICE / बिक्री चालान' : 'PURCHASE ORDER / क्रय आदेश';
+  const title = kind === 'SALES' ? 'TAX INVOICE' : 'PURCHASE ORDER';
   const cgst = totals.cgst || 0, sgst = totals.sgst || 0, igst = totals.igst || 0;
   const taxable = totals.taxable || 0, discount = totals.discount || 0;
   const grand = totals.grand_total != null ? totals.grand_total : taxable + cgst + sgst + igst;
@@ -61,7 +61,7 @@ export default function InvoiceDoc({ kind, company = {}, party = {}, doc = {}, l
       {/* Party block */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div className="border border-slate-300 rounded p-2">
-          <div className="text-[10px] font-bold uppercase text-slate-500 mb-1">{kind === 'SALES' ? 'Bill To / ग्राहक' : 'Vendor / विक्रेता'}</div>
+          <div className="text-[10px] font-bold uppercase text-slate-500 mb-1">{kind === 'SALES' ? 'Bill To' : 'Vendor'}</div>
           <div className="font-bold">{party.name || '—'}</div>
           <div className="text-xs text-slate-600 whitespace-pre-line">{party.address}</div>
           <div className="text-xs text-slate-600">{party.state || ''}</div>
@@ -69,7 +69,7 @@ export default function InvoiceDoc({ kind, company = {}, party = {}, doc = {}, l
           {party.contact && <div className="text-xs">Ph: {party.contact}</div>}
         </div>
         <div className="border border-slate-300 rounded p-2">
-          <div className="text-[10px] font-bold uppercase text-slate-500 mb-1">{kind === 'SALES' ? 'Ship To / डिलीवरी' : 'Delivery'}</div>
+          <div className="text-[10px] font-bold uppercase text-slate-500 mb-1">{kind === 'SALES' ? 'Ship To' : 'Delivery'}</div>
           <div className="text-xs text-slate-600 whitespace-pre-line">{doc.shipping_address || party.address || '—'}</div>
           {doc.shipping_state && <div className="text-xs text-slate-600">{doc.shipping_state}</div>}
         </div>
@@ -114,7 +114,7 @@ export default function InvoiceDoc({ kind, company = {}, party = {}, doc = {}, l
 
       {returns.length > 0 && (
         <div className="mt-3 avoid-break">
-          <div className="text-[10px] font-bold uppercase text-slate-500 mb-1">Returns / वापसी</div>
+          <div className="text-[10px] font-bold uppercase text-slate-500 mb-1">Returns</div>
           <table className="w-full border-collapse">
             <thead><tr className="bg-rose-50 text-[10px] uppercase">
               <th className="text-left px-2 py-1 border border-slate-300">Item</th>
@@ -150,7 +150,7 @@ export default function InvoiceDoc({ kind, company = {}, party = {}, doc = {}, l
         </div>
         <div className="text-right flex flex-col justify-end">
           {doc.signatory && <div className="text-xs font-semibold">{doc.signatory}</div>}
-          <div className="text-xs text-slate-600 mt-8 pt-1 border-t border-slate-300 inline-block w-52 ml-auto">Authorized Signatory / अधिकृत हस्ताक्षर</div>
+          <div className="text-xs text-slate-600 mt-8 pt-1 border-t border-slate-300 inline-block w-52 ml-auto">Authorized Signatory</div>
         </div>
       </div>
     </div>

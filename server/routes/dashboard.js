@@ -28,7 +28,9 @@ router.get('/', (req, res) => {
       WHERE p.status IN ('PENDING','PARTIAL') AND p.company_id=?`).get(req.companyId);
 
   const recentTxns = db.prepare(`SELECT sl.*, i.sku, i.item_name FROM stock_ledger sl
-      JOIN items i ON i.item_id=sl.item_id ORDER BY sl.ledger_id DESC LIMIT 12`).all();
+      JOIN items i ON i.item_id=sl.item_id
+      WHERE sl.company_id=?
+      ORDER BY sl.ledger_id DESC LIMIT 12`).all(req.companyId);
 
   const topStock = db.prepare(`SELECT sku, item_name, current_stock_qty, current_stock_value, unit
       FROM items WHERE is_active=1 AND company_id=? ORDER BY current_stock_value DESC LIMIT 5`).all(req.companyId);

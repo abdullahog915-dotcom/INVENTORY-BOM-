@@ -41,7 +41,7 @@ export default function Vendors() {
 
   return (
     <div>
-      <PageHeader title="Vendors / विक्रेता" subtitle="Suppliers and job workers with purchase rate history"
+      <PageHeader title="Vendors" subtitle="Suppliers and job workers with purchase rate history"
         actions={<Button variant="primary" onClick={openNew}>+ New Vendor</Button>} />
 
       <Card pad={false}>
@@ -65,7 +65,7 @@ export default function Vendors() {
       </Card>
 
       {modal && (
-        <Modal title={editing ? `Edit Vendor — ${editing.vendor_name}` : 'New Vendor / नया विक्रेता'} onClose={() => setModal(false)}
+        <Modal title={editing ? `Edit Vendor — ${editing.vendor_name}` : 'New Vendor'} onClose={() => setModal(false)}
           footer={<>
             <Button onClick={() => setModal(false)}>Cancel</Button>
             <Button variant="primary" onClick={save}>Save Vendor</Button>
@@ -73,9 +73,9 @@ export default function Vendors() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Vendor Name *" value={form.vendor_name} onChange={e => setForm(f => ({ ...f, vendor_name: e.target.value }))} autoFocus />
             <Select label="Type" value={form.vendor_type} onChange={e => setForm(f => ({ ...f, vendor_type: e.target.value }))}>
-              <option value="SUPPLIER">Supplier / आपूर्तिकर्ता</option>
-              <option value="JOB_WORKER">Job Worker / जॉब वर्कर</option>
-              <option value="BOTH">Both / दोनों</option>
+              <option value="SUPPLIER">Supplier</option>
+              <option value="JOB_WORKER">Job Worker</option>
+              <option value="BOTH">Both</option>
             </Select>
             <Input label="Contact No." value={form.contact_no} onChange={e => setForm(f => ({ ...f, contact_no: e.target.value }))} />
             <Input label="GSTIN" value={form.gstin} onChange={e => setForm(f => ({ ...f, gstin: e.target.value }))} />

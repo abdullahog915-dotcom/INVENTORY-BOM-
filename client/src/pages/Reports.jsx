@@ -8,18 +8,18 @@ import ExportCSV from '../components/ExportCSV.jsx';
 import { daysAgo } from '../utils.js';
 
 const TABS = [
-  { id: 'valuation', label: 'Stock Valuation', hi: 'स्टॉक मूल्यांकन' },
-  { id: 'scrap', label: 'Scrap Valuation', hi: 'स्क्रैप मूल्यांकन' },
-  { id: 'variance', label: 'BOM vs Actual Cost', hi: 'लागत अंतर' },
-  { id: 'consumption', label: 'Material Consumption', hi: 'उपभोग रिपोर्ट' },
-  { id: 'lowstock', label: 'Low Stock / Reorder', hi: 'कम स्टॉक' },
+  { id: 'valuation', label: 'Stock Valuation' },
+  { id: 'scrap', label: 'Scrap Valuation' },
+  { id: 'variance', label: 'BOM vs Actual Cost' },
+  { id: 'consumption', label: 'Material Consumption' },
+  { id: 'lowstock', label: 'Low Stock / Reorder' },
 ];
 
 const TYPE_LABEL = {
-  RAW_MATERIAL: 'Raw Material / कच्चा माल',
-  SEMI_FINISHED: 'Semi-Finished / अर्ध-तैयार',
-  FINISHED_GOOD: 'Finished Good / तैयार माल',
-  SCRAP: 'Scrap / स्क्रैप',
+  RAW_MATERIAL: 'Raw Material',
+  SEMI_FINISHED: 'Semi-Finished',
+  FINISHED_GOOD: 'Finished Good',
+  SCRAP: 'Scrap',
 };
 
 export default function Reports() {
@@ -28,13 +28,13 @@ export default function Reports() {
 
   return (
     <div>
-      <PageHeader title="Reports / रिपोर्ट" subtitle="Full-detail MIS reports with date range and Excel/CSV export" />
+      <PageHeader title="Reports" subtitle="Full-detail MIS reports with date range and Excel/CSV export" />
       <div className="flex flex-wrap gap-1.5 mb-4">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={cx('px-3 py-2 rounded-lg text-sm font-medium cursor-pointer border transition-colors',
               tab === t.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300')}>
-            {t.label}<span className={cx('block text-[10px] font-normal', tab === t.id ? 'text-indigo-200' : 'text-slate-400')}>{t.hi}</span>
+            {t.label}
           </button>
         ))}
       </div>
@@ -88,7 +88,7 @@ function StockValuation({ range, setRange }) {
 
   return (
     <Card
-      title="Stock Valuation Report (Weighted Average Cost) / स्टॉक मूल्यांकन"
+      title="Stock Valuation Report (Weighted Average Cost)"
       subtitle={`${data.from} to ${data.to} · Opening + IN − OUT = Closing`}
       actions={<><RangeFilter range={range} setRange={setRange} /><ExportCSV filename="stock-valuation.csv" columns={csvCols} rows={csvRows} /></>}
     >
@@ -96,7 +96,7 @@ function StockValuation({ range, setRange }) {
         <table className="min-w-full text-sm border-collapse">
           <thead>
             <tr className="bg-slate-50 text-slate-600 text-[11px] uppercase">
-              <th className="px-2 py-2 text-left font-semibold min-w-[180px]">Item / आइटम</th>
+              <th className="px-2 py-2 text-left font-semibold min-w-[180px]">Item</th>
               <th className="px-2 py-2 text-right font-semibold border-l border-slate-200">Opening</th>
               <th className="px-2 py-2 text-right font-semibold border-l border-slate-200 bg-emerald-50/60">Purchase IN</th>
               <th className="px-2 py-2 text-right font-semibold bg-emerald-50/60">Prod OUT IN</th>
@@ -162,7 +162,7 @@ function StockValuation({ range, setRange }) {
               </tr>
             ))}
             <tr className="bg-indigo-600 text-white font-bold">
-              <td className="px-2 py-2" colSpan={2}>GRAND TOTAL / कुल योग</td>
+              <td className="px-2 py-2" colSpan={2}>GRAND TOTAL</td>
               <td className="px-2 py-2 text-right border-l border-white/20" colSpan={9} />
               <td className="px-2 py-2 text-right border-l border-white/20">
                 <div>{fmt(data.grand_total.qty)}</div><div>{inr(data.grand_total.value)}</div>
@@ -214,7 +214,7 @@ function ScrapValuation({ range, setRange }) {
   }));
 
   return (
-    <Card title="Scrap Valuation Report / स्क्रैप मूल्यांकन"
+    <Card title="Scrap Valuation Report"
       subtitle="Scrap generated in production vs disposed — tracked separately from finished goods"
       actions={<><RangeFilter range={range} setRange={setRange} /><ExportCSV filename="scrap-valuation.csv" columns={csvCols} rows={csvRows} /></>}>
       <DataTable
@@ -232,7 +232,7 @@ function ScrapValuation({ range, setRange }) {
         ]}
       />
       <div className="mt-3 px-3 py-2 bg-indigo-50 rounded-lg text-sm flex justify-between font-semibold">
-        <span>Total Scrap Stock Value / कुल स्क्रैप मूल्य</span><span>{inr(data.total.value)} ({fmt(data.total.qty)} qty)</span>
+        <span>Total Scrap Stock Value</span><span>{inr(data.total.value)} ({fmt(data.total.qty)} qty)</span>
       </div>
     </Card>
   );
@@ -254,7 +254,7 @@ function Variance({ range, setRange }) {
   ];
 
   return (
-    <Card title="BOM Cost vs Actual Production Cost / लागत तुलना"
+    <Card title="BOM Cost vs Actual Production Cost"
       subtitle="Estimated (from BOM) vs actual cost per completed production order"
       actions={<><RangeFilter range={range} setRange={setRange} /><ExportCSV filename="cost-variance.csv" columns={csvCols} rows={data.items.map(r => ({ ...r, completed_date: r.completed_date ? String(r.completed_date).slice(0, 10) : '' }))} /></>}>
       <DataTable
@@ -300,7 +300,7 @@ function Consumption({ range, setRange }) {
   ];
 
   return (
-    <Card title="Raw Material Consumption Report / कच्चा माल उपभोग"
+    <Card title="Raw Material Consumption Report"
       subtitle={`Total quantity consumed in production, ${data.from} to ${data.to}`}
       actions={<><RangeFilter range={range} setRange={setRange} /><ExportCSV filename="material-consumption.csv" columns={csvCols} rows={data.items} /></>}>
       <DataTable
@@ -317,7 +317,7 @@ function Consumption({ range, setRange }) {
         ]}
       />
       <div className="mt-3 px-3 py-2 bg-indigo-50 rounded-lg text-sm flex justify-between font-semibold">
-        <span>Total Consumed / कुल उपभोग</span><span>{fmt(data.total.qty)} qty = {inr(data.total.value)}</span>
+        <span>Total Consumed</span><span>{fmt(data.total.qty)} qty = {inr(data.total.value)}</span>
       </div>
     </Card>
   );
@@ -339,7 +339,7 @@ function LowStock() {
   ];
 
   return (
-    <Card title="Low Stock / Reorder Report / कम स्टॉक रिपोर्ट"
+    <Card title="Low Stock / Reorder Report"
       subtitle="Items at or below reorder level with suggested purchase quantity"
       actions={<ExportCSV filename="low-stock.csv" columns={csvCols} rows={data} />}>
       {data.length === 0 ? (

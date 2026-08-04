@@ -5,9 +5,9 @@ import { PageHeader, Card, Input, Select, Button, Modal, Spinner, Badge, Confirm
 import DataTable from '../components/DataTable.jsx';
 
 const jwStatus = (s) => ({
-  SENT: <Badge color="amber">Sent / भेजा</Badge>,
+  SENT: <Badge color="amber">Sent</Badge>,
   PARTIAL_RECEIVED: <Badge color="sky">Partial Received</Badge>,
-  RECEIVED: <Badge color="green">Received / प्राप्त</Badge>,
+  RECEIVED: <Badge color="green">Received</Badge>,
   CANCELLED: <Badge color="red">Cancelled</Badge>,
 }[s] || s);
 
@@ -74,7 +74,7 @@ export default function JobWork() {
 
   return (
     <div>
-      <PageHeader title="Job Work / जॉब वर्क"
+      <PageHeader title="Job Work"
         subtitle="Outsourced polishing / electroplating — track material sent, received and charges"
         actions={<Button variant="primary" onClick={() => setCreateModal(true)}>+ Send for Job Work</Button>} />
 
@@ -82,7 +82,7 @@ export default function JobWork() {
         <div className="p-3 flex gap-2">
           <Select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))} className="w-52">
             <option value="">All Status</option>
-            <option value="SENT">Sent / भेजा</option>
+            <option value="SENT">Sent</option>
             <option value="PARTIAL_RECEIVED">Partial Received</option>
             <option value="RECEIVED">Received</option>
             <option value="CANCELLED">Cancelled</option>
@@ -127,13 +127,13 @@ export default function JobWork() {
       </Card>
 
       {createModal && (
-        <Modal title="Send for Job Work / जॉब वर्क भेजें" onClose={() => setCreateModal(false)}
+        <Modal title="Send for Job Work" onClose={() => setCreateModal(false)}
           footer={<>
             <Button onClick={() => setCreateModal(false)}>Cancel</Button>
             <Button variant="primary" onClick={create}>Send Material</Button>
           </>}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Select label="Job Worker * / कारीगर" value={form.vendor_id} onChange={e => setForm(f => ({ ...f, vendor_id: e.target.value }))}>
+            <Select label="Job Worker *" value={form.vendor_id} onChange={e => setForm(f => ({ ...f, vendor_id: e.target.value }))}>
               <option value="">Select...</option>
               {jobWorkers.map(v => <option key={v.vendor_id} value={v.vendor_id}>{v.vendor_name}</option>)}
             </Select>

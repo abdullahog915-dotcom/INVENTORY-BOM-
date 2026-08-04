@@ -117,3 +117,66 @@ export function downloadCSV(filename, columns, rows) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+export function parseBankDetails(str) {
+  if (!str) return { bank_name: '', account_no: '', ifsc: '', branch: '', holder_name: '' };
+  try {
+    const parsed = JSON.parse(str);
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      return {
+        bank_name: parsed.bank_name || '',
+        account_no: parsed.account_no || '',
+        ifsc: parsed.ifsc || '',
+        branch: parsed.branch || '',
+        holder_name: parsed.holder_name || '',
+      };
+    }
+  } catch (e) {}
+  return { bank_name: String(str), account_no: '', ifsc: '', branch: '', holder_name: '' };
+}
+
+export function stringifyBankDetails(obj) {
+  if (!obj) return '';
+  const { bank_name = '', account_no = '', ifsc = '', branch = '', holder_name = '' } = obj;
+  if (!bank_name.trim() && !account_no.trim() && !ifsc.trim() && !branch.trim() && !holder_name.trim()) return '';
+  return JSON.stringify({
+    bank_name: bank_name.trim(),
+    account_no: account_no.trim(),
+    ifsc: ifsc.trim().toUpperCase(),
+    branch: branch.trim(),
+    holder_name: holder_name.trim(),
+  });
+}
+
+export function parseInvoiceTerms(str) {
+  if (!str) return [''];
+  try {
+    const parsed = JSON.parse(str);
+    if (Array.isArray(parsed)) return parsed.length ? parsed : [''];
+  } catch (e) {}
+  const lines = String(str).split(/\n+/).map(l => l.replace(/^\d+[\.\)]\s*/, '').trim()).filter(Boolean);
+  return lines.length ? lines : [String(str)];
+}
+
+export function stringifyInvoiceTerms(terms) {
+  if (!Array.isArray(terms)) return '';
+  const cleaned = terms.map(t => String(t || '').trim()).filter(Boolean);
+  return cleaned.length ? JSON.stringify(cleaned) : '';
+}
+
+export function getUPIQRUrl(upiId, name, amount, invNo) {
+  if (!upiId) return '';
+  const cleanId = String(upiId).trim();
+  const cleanName = encodeURIComponent(name || 'Merchant');
+  const cleanAmt = encodeURIComponent(amount || 0);
+  const cleanNote = encodeURIComponent(`Payment for ${invNo || 'Invoice'}`);
+  const upiUri = `upi://pay?pa=${cleanId}&pn=${cleanName}&am=${cleanAmt}&cu=INR&tn=${cleanNote}`;
+  return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiUri)}`;
+}
+
+export const COPY_TYPES = [
+  'Original for Recipient',
+  'Duplicate for Transporter',
+  'Triplicate for Supplier',
+];
+

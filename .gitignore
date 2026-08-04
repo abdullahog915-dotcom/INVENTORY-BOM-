@@ -3,3 +3,6 @@ dist/
 data/
 *.log
 .DS_Store
+client/vite.config.js.timestamp-*.mjs
+count_sql*.js
+count_sql*.mjs

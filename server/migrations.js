@@ -103,9 +103,20 @@ function backfillLineTaxes() {
 export function runMigrations() {
   const defaultId = ensureDefaultCompany();
 
+  /* Company Profile extensions */
+  addCol('companies', 'phone', 'TEXT');
+  addCol('companies', 'email', 'TEXT');
+  addCol('companies', 'website', 'TEXT');
+  addCol('companies', 'pan', 'TEXT');
+  addCol('companies', 'upi_id', 'TEXT');
+  addCol('companies', 'jurisdiction', 'TEXT');
+  addCol('companies', 'field_defaults', 'TEXT');
+
+  /* Item & Master extensions */
   addCol('items', 'company_id', 'INTEGER REFERENCES companies(company_id)');
   addCol('items', 'gst_pct', 'REAL DEFAULT 0');
   addCol('items', 'grp', 'TEXT');
+  addCol('groups', 'item_type', "TEXT CHECK(item_type IN ('RAW_MATERIAL','SEMI_FINISHED','FINISHED_GOOD','SCRAP'))");
 
   addCol('vendors', 'company_id', 'INTEGER REFERENCES companies(company_id)');
   addCol('vendors', 'state', 'TEXT');
@@ -114,6 +125,7 @@ export function runMigrations() {
   addCol('production_orders', 'company_id', 'INTEGER REFERENCES companies(company_id)');
   addCol('stock_ledger', 'company_id', 'INTEGER REFERENCES companies(company_id)');
 
+  /* Purchase Orders extensions */
   addCol('purchase_orders', 'company_id', 'INTEGER REFERENCES companies(company_id)');
   addCol('purchase_orders', 'vendor_invoice_no', 'TEXT');
   addCol('purchase_orders', 'due_date', 'TEXT');
@@ -123,10 +135,51 @@ export function runMigrations() {
   addCol('purchase_orders', 'payment_status', "TEXT DEFAULT 'UNPAID'");
   addCol('purchase_orders', 'amount_paid', 'REAL DEFAULT 0');
   addCol('purchase_orders', 'notes', 'TEXT');
+  addCol('purchase_orders', 'transport_mode', 'TEXT');
+  addCol('purchase_orders', 'vehicle_no', 'TEXT');
+  addCol('purchase_orders', 'delivery_date', 'TEXT');
+  addCol('purchase_orders', 'reverse_charge', 'INTEGER DEFAULT 0');
+  addCol('purchase_orders', 'eway_bill_no', 'TEXT');
+  addCol('purchase_orders', 'order_date', 'TEXT');
+  addCol('purchase_orders', 'challan_no', 'TEXT');
+  addCol('purchase_orders', 'other_charges', 'REAL DEFAULT 0');
+  addCol('purchase_orders', 'custom_fields', 'TEXT');
+  addCol('purchase_orders', 'discount_amount', 'REAL DEFAULT 0');
+  addCol('purchase_orders', 'freight_charges', 'REAL DEFAULT 0');
+  addCol('purchase_orders', 'packing_charges', 'REAL DEFAULT 0');
+  addCol('purchase_orders', 'insurance_charges', 'REAL DEFAULT 0');
 
+  /* Sales Invoices extensions */
+  addCol('sales_invoices', 'transport_mode', 'TEXT');
+  addCol('sales_invoices', 'vehicle_no', 'TEXT');
+  addCol('sales_invoices', 'delivery_date', 'TEXT');
+  addCol('sales_invoices', 'reverse_charge', 'INTEGER DEFAULT 0');
+  addCol('sales_invoices', 'eway_bill_no', 'TEXT');
+  addCol('sales_invoices', 'order_date', 'TEXT');
+  addCol('sales_invoices', 'challan_no', 'TEXT');
+  addCol('sales_invoices', 'salesperson_name', 'TEXT');
+  addCol('sales_invoices', 'other_charges', 'REAL DEFAULT 0');
+  addCol('sales_invoices', 'amount_paid', 'REAL DEFAULT 0');
+  addCol('sales_invoices', 'payment_status', "TEXT DEFAULT 'UNPAID'");
+  addCol('sales_invoices', 'copy_type', "TEXT DEFAULT 'Original for Recipient'");
+  addCol('sales_invoices', 'irn_no', 'TEXT');
+  addCol('sales_invoices', 'ack_no', 'TEXT');
+  addCol('sales_invoices', 'ack_date', 'TEXT');
+  addCol('sales_invoices', 'custom_fields', 'TEXT');
+  addCol('sales_invoices', 'shipping_name', 'TEXT');
+  addCol('sales_invoices', 'shipping_gstin', 'TEXT');
+  addCol('sales_invoices', 'shipping_state', 'TEXT');
+  addCol('sales_invoices', 'shipping_contact', 'TEXT');
+  addCol('sales_invoices', 'discount_amount', 'REAL DEFAULT 0');
+  addCol('sales_invoices', 'freight_charges', 'REAL DEFAULT 0');
+  addCol('sales_invoices', 'packing_charges', 'REAL DEFAULT 0');
+  addCol('sales_invoices', 'insurance_charges', 'REAL DEFAULT 0');
+
+  /* Invoice Line extensions */
   for (const t of ['purchase_order_lines', 'sales_invoice_lines']) {
     addCol(t, 'hsn_code', 'TEXT');
     addCol(t, 'unit', 'TEXT');
+    addCol(t, 'weight', 'REAL DEFAULT 0');
     addCol(t, 'discount_pct', 'REAL DEFAULT 0');
     addCol(t, 'taxable_value', 'REAL DEFAULT 0');
     addCol(t, 'cgst_amount', 'REAL DEFAULT 0');

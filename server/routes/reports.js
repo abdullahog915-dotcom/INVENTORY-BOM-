@@ -6,10 +6,10 @@ const router = Router();
 
 const TYPE_ORDER = { RAW_MATERIAL: 0, SEMI_FINISHED: 1, FINISHED_GOOD: 2, SCRAP: 3 };
 const TYPE_LABEL = {
-  RAW_MATERIAL: 'Raw Material / कच्चा माल',
-  SEMI_FINISHED: 'Semi-Finished / अर्ध-तैयार',
-  FINISHED_GOOD: 'Finished Good / तैयार माल',
-  SCRAP: 'Scrap / स्क्रैप',
+  RAW_MATERIAL: 'Raw Material',
+  SEMI_FINISHED: 'Semi-Finished',
+  FINISHED_GOOD: 'Finished Good',
+  SCRAP: 'Scrap',
 };
 
 /* ---------- A. Stock Valuation Report ---------- */

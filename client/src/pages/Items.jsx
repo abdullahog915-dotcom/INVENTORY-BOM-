@@ -10,6 +10,73 @@ const empty = {
   gst_pct: 18, reorder_level: 0, current_stock_qty: 0, last_purchase_rate: 0, sale_rate: 0,
 };
 
+const BASE_GROUP_NAMES = new Set(['Raw Material', 'Semi Finished', 'Finished Good', 'Scrap']);
+
+/* Group field that carries an item_type mapping. Selecting a base group or a
+   custom sub-group sets the item's type automatically. "+ Add New Group"
+   asks for a base type so BOM/production filtering keeps working. */
+function TypedGroupField({ label, options = [], value, onChange, onAdd }) {
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newType, setNewType] = useState('RAW_MATERIAL');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async () => {
+    const name = newName.trim();
+    if (!name || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const created = await onAdd(name, newType);
+      onChange(created);           // { name, item_type }
+      setNewName('');
+      setAdding(false);
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  };
+
+  if (adding) {
+    return (
+      <label className="block">
+        {label && <span className="block text-xs font-semibold text-slate-600 mb-1">{label}</span>}
+        <div className="space-y-1.5">
+          <input autoFocus value={newName} placeholder="New group name"
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') { setNewName(''); setAdding(false); } }}
+            className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+          <div className="flex gap-1.5 items-center">
+            <select value={newType} onChange={(e) => setNewType(e.target.value)}
+              className="flex-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+              {ITEM_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+            <Button variant="primary" className="shrink-0" onClick={submit} disabled={busy || !newName.trim()}>{busy ? 'Saving...' : 'Add'}</Button>
+            <Button className="shrink-0" onClick={() => { setNewName(''); setAdding(false); }}>Cancel</Button>
+          </div>
+          <p className="text-[11px] text-slate-400">Base type is required so BOM and production filtering still works.</p>
+          {error && <p className="text-[11px] text-rose-600">{error}</p>}
+        </div>
+      </label>
+    );
+  }
+
+  return (
+    <Select label={label} value={value ?? ''}
+      onChange={(e) => {
+        if (e.target.value === '__add__') setAdding(true);
+        else onChange(e.target.value);
+      }}>
+      <option value="">Select group...</option>
+      {options.map(g => (
+        <option key={g.name} value={g.name}>
+          {BASE_GROUP_NAMES.has(g.name) ? g.name : `${g.name} (${typeLabel(g.item_type)})`}
+        </option>
+      ))}
+      <option value="__add__">+ Add New Group</option>
+    </Select>
+  );
+}
+
 export default function Items() {
   const [items, setItems] = useState(null);
   const [categories, setCategories] = useState([]);
@@ -38,9 +105,12 @@ export default function Items() {
 
   const openNew = () => { setForm(empty); setEditing(null); setModal(true); };
   const openEdit = (row) => {
+    const grp = groups.find(x => x.name === row.grp);
     setEditing(row);
     setForm({
-      sku: row.sku, item_name: row.item_name, item_type: row.item_type, category: row.category || '',
+      sku: row.sku, item_name: row.item_name,
+      item_type: (grp && grp.item_type) || row.item_type,
+      category: row.category || '',
       grp: row.grp || '', unit: row.unit, hsn_code: row.hsn_code || '', gst_pct: row.gst_pct || 0,
       reorder_level: row.reorder_level, last_purchase_rate: row.last_purchase_rate, sale_rate: row.sale_rate,
     });
@@ -52,14 +122,23 @@ export default function Items() {
     setCategories(await api('/items/categories'));
     return r.name;
   };
-  const addGroup = async (name) => {
-    const r = await api('/items/groups', { method: 'POST', body: { name } });
+  const addGroup = async (name, itemType) => {
+    const r = await api('/items/groups', { method: 'POST', body: { name, item_type: itemType } });
     setGroups(await api('/items/groups'));
-    return r.name;
+    return r; // { name, item_type }
+  };
+
+  const onGroupChange = (g) => {
+    const name = typeof g === 'string' ? g : (g && g.name);
+    const itemType = typeof g === 'string'
+      ? (groups.find(x => x.name === g)?.item_type || '')
+      : (g && g.item_type);
+    setForm(f => ({ ...f, grp: name, item_type: itemType || f.item_type }));
   };
 
   const save = async () => {
     if (!form.item_name.trim()) { toast('Item name required', 'error'); return; }
+    if (!editing && !form.grp) { toast('Select a group', 'error'); return; }
     setSaving(true);
     try {
       if (editing) {
@@ -89,16 +168,16 @@ export default function Items() {
   return (
     <div>
       <PageHeader
-        title="Item Master / आइटम मास्टर"
+        title="Item Master"
         subtitle="Raw materials, semi-finished, finished goods and scrap items"
-        actions={<Button variant="primary" onClick={openNew}>+ New Item / नया आइटम</Button>}
+        actions={<Button variant="primary" onClick={openNew}>+ New Item</Button>}
       />
 
       <Card className="mb-4" pad={false}>
         <div className="p-3 flex flex-wrap items-center gap-2">
           <Input placeholder="Search SKU / Name / HSN..." value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} className="w-64" />
           <Select value={filters.type} onChange={e => setFilters(f => ({ ...f, type: e.target.value }))} className="w-52">
-            <option value="">All Types / सभी प्रकार</option>
+            <option value="">All Types</option>
             {ITEM_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </Select>
           <Select value={filters.category} onChange={e => setFilters(f => ({ ...f, category: e.target.value }))} className="w-44">
@@ -142,7 +221,7 @@ export default function Items() {
 
       {modal && (
         <Modal
-          title={editing ? `Edit Item — ${editing.sku}` : 'New Item / नया आइटम'}
+          title={editing ? `Edit Item — ${editing.sku}` : 'New Item'}
           onClose={() => setModal(false)}
           footer={<>
             <Button onClick={() => setModal(false)}>Cancel</Button>
@@ -151,25 +230,22 @@ export default function Items() {
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="SKU (auto if blank)" value={form.sku} onChange={set('sku')} placeholder="RM-BRASS-002" />
-            <Input label="Item Name * / नाम" value={form.item_name} onChange={set('item_name')} autoFocus placeholder="Brass Ingot" />
-            <Select label="Type * / प्रकार" value={form.item_type} onChange={set('item_type')}>
-              {ITEM_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </Select>
-            <CreatableSelect label="Category / श्रेणी" options={categories} value={form.category}
+            <Input label="Item Name *" value={form.item_name} onChange={set('item_name')} autoFocus placeholder="Brass Ingot" />
+            <CreatableSelect label="Category" options={categories} value={form.category}
               onChange={setSel('category')} onAdd={addCategory} addLabel="+ Add New Category" placeholder="Select category..." />
-            <CreatableSelect label="Group / समूह" options={groups} value={form.grp}
-              onChange={setSel('grp')} onAdd={addGroup} addLabel="+ Add New Group" placeholder="Select group..." />
-            <Select label="Unit * / इकाई" value={form.unit} onChange={set('unit')}>
+            <TypedGroupField label="Group *" options={groups} value={form.grp}
+              onChange={onGroupChange} onAdd={addGroup} />
+            <Select label="Unit *" value={form.unit} onChange={set('unit')}>
               {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
             </Select>
             <Input label="HSN Code" value={form.hsn_code} onChange={set('hsn_code')} />
-            <Select label="GST Rate % / जीएसटी दर" value={form.gst_pct} onChange={set('gst_pct')}>
+            <Select label="GST Rate %" value={form.gst_pct} onChange={set('gst_pct')}>
               {GST_SLABS.map(g => <option key={g} value={g}>{g}%</option>)}
             </Select>
-            <Input label="Reorder Level / पुनः-ऑर्डर स्तर" type="number" step="any" value={form.reorder_level} onChange={set('reorder_level')} />
+            <Input label="Reorder Level" type="number" step="any" value={form.reorder_level} onChange={set('reorder_level')} />
             {!editing && <Input label="Opening Stock Qty" type="number" step="any" value={form.current_stock_qty} onChange={set('current_stock_qty')} hint="Only on creation" />}
-            <Input label="Purchase Rate (₹) / खरीद दर" type="number" step="any" value={form.last_purchase_rate} onChange={set('last_purchase_rate')} />
-            <Input label="Sale Rate (₹) / बिक्री दर" type="number" step="any" value={form.sale_rate} onChange={set('sale_rate')} />
+            <Input label="Purchase Rate (₹)" type="number" step="any" value={form.last_purchase_rate} onChange={set('last_purchase_rate')} />
+            <Input label="Sale Rate (₹)" type="number" step="any" value={form.sale_rate} onChange={set('sale_rate')} />
           </div>
         </Modal>
       )}

@@ -89,7 +89,7 @@ export default function BOM() {
 
   return (
     <div>
-      <PageHeader title="BOM / बीओएम (Bill of Materials)"
+      <PageHeader title="BOM"
         subtitle="Multi-level BOM with wastage %, auto cost and version history"
         actions={<Button variant="primary" onClick={() => openNew()}>+ New BOM</Button>} />
 
@@ -133,25 +133,25 @@ export default function BOM() {
       </Card>
 
       {modal && (
-        <Modal title={form.revising ? 'Revise BOM (new version / नया संस्करण)' : 'Create BOM / नया बीओएम'} onClose={() => setModal(false)} wide
+        <Modal title={form.revising ? 'Revise BOM (new version)' : 'Create BOM'} onClose={() => setModal(false)} wide
           footer={<>
             <Button onClick={() => setModal(false)}>Cancel</Button>
             <Button variant="primary" onClick={save}>{form.revising ? 'Save as v+1' : 'Create BOM'}</Button>
           </>}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <Select label="Output Item * / आउटपुट" value={form.output_item_id} disabled={!!form.revising}
+            <Select label="Output Item *" value={form.output_item_id} disabled={!!form.revising}
               onChange={e => setForm(f => ({ ...f, output_item_id: e.target.value }))} className="col-span-2 md:col-span-2">
               <option value="">Select...</option>
               {bomable.map(i => <option key={i.item_id} value={i.item_id}>{i.sku} — {i.item_name}</option>)}
             </Select>
-            <Input label="Output Qty / बैच" type="number" step="any" value={form.output_qty} onChange={e => setForm(f => ({ ...f, output_qty: e.target.value }))} />
+            <Input label="Output Qty" type="number" step="any" value={form.output_qty} onChange={e => setForm(f => ({ ...f, output_qty: e.target.value }))} />
             <Input label="Overhead %" type="number" step="any" value={form.overhead_pct} onChange={e => setForm(f => ({ ...f, overhead_pct: e.target.value }))} />
             <Input label="Labor Cost (₹)" type="number" step="any" value={form.labor_cost} onChange={e => setForm(f => ({ ...f, labor_cost: e.target.value }))} className="col-span-2 md:col-span-1" />
             <Input label="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="col-span-2 md:col-span-3" />
           </div>
 
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-bold text-slate-700">Components / घटक</h4>
+            <h4 className="text-sm font-bold text-slate-700">Components</h4>
             <Button variant="ghost" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { component_item_id: '', qty_required: 1, wastage_pct: 0 }] }))}>+ Add Line</Button>
           </div>
 

@@ -23,10 +23,10 @@ function computeLine(l, same) {
 }
 
 const poStatus = (s) => ({
-  PENDING: <Badge color="amber">Pending / लंबित</Badge>,
+  PENDING: <Badge color="amber">Pending</Badge>,
   PARTIAL: <Badge color="sky">Partial</Badge>,
-  RECEIVED: <Badge color="green">Received / प्राप्त</Badge>,
-  CANCELLED: <Badge color="red">Cancelled / रद्द</Badge>,
+  RECEIVED: <Badge color="green">Received</Badge>,
+  CANCELLED: <Badge color="red">Cancelled</Badge>,
 }[s] || s);
 
 const payBadge = (s) => s === 'PAID' ? <Badge color="green">Paid</Badge> : s === 'PARTIAL' ? <Badge color="amber">Partial</Badge> : <Badge color="slate">Unpaid</Badge>;
@@ -164,7 +164,7 @@ export default function Purchase() {
 
   return (
     <div>
-      <PageHeader title="Purchase / खरीद" subtitle="Purchase orders with GST and purchase entries (stock IN at net rate)"
+      <PageHeader title="Purchase" subtitle="Purchase orders with GST and purchase entries (stock IN at net rate)"
         actions={<Button variant="primary" onClick={openNew}>+ New Purchase Order</Button>} />
 
       <Card className="mb-4" pad={false}>
@@ -200,7 +200,7 @@ export default function Purchase() {
 
       {/* ---------- New PO ---------- */}
       {createModal && (
-        <Modal title="New Purchase Order / नया पीओ" onClose={() => setCreateModal(false)} wide
+        <Modal title="New Purchase Order" onClose={() => setCreateModal(false)} wide
           footer={<>
             <Button onClick={() => setCreateModal(false)}>Cancel</Button>
             <Button variant="primary" onClick={createPO} disabled={busy}>{busy ? 'Creating...' : 'Create PO'}</Button>
@@ -215,7 +215,7 @@ export default function Purchase() {
             </Select>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-            <Select label="Vendor * / विक्रेता" value={form.vendor_id}
+            <Select label="Vendor *" value={form.vendor_id}
               onChange={e => setForm(f => ({ ...f, vendor_id: e.target.value, place_of_supply: vendors.find(v => v.vendor_id === Number(e.target.value))?.state || f.place_of_supply }))}>
               <option value="">Select vendor...</option>
               {vendors.map(v => <option key={v.vendor_id} value={v.vendor_id}>{v.vendor_name}</option>)}
@@ -234,7 +234,7 @@ export default function Purchase() {
           </div>
 
           <div className="flex justify-between items-center mb-2">
-            <h4 className="text-sm font-bold text-slate-700">Items / मद</h4>
+            <h4 className="text-sm font-bold text-slate-700">Items</h4>
             <Button variant="ghost" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, emptyLine()] }))}>+ Add Line</Button>
           </div>
           {form.lines.map((line, i) => {

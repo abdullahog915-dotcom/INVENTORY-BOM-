@@ -91,8 +91,11 @@ export function computeLine({ rate, qty, gst_pct, discount_pct }, sameState) {
   };
 }
 
-/** Footer totals from an array of already-computed line objects. */
-export function computeTotals(lines) {
+/** Footer totals from an array of already-computed line objects.
+    discount_amount is a flat (₹) discount applied after line-level % discounts. */
+export function computeTotals(lines, other_charges = 0, discount_amount = 0) {
+  const otherCharges = Number(other_charges) || 0;
+  const flatDiscount = round2(Number(discount_amount) || 0);
   const t = lines.reduce((a, l) => ({
     gross: round2(a.gross + (l.gross || 0)),
     discount: round2(a.discount + (l.discount || 0)),
@@ -100,8 +103,13 @@ export function computeTotals(lines) {
     cgst: round2(a.cgst + (l.cgst || 0)),
     sgst: round2(a.sgst + (l.sgst || 0)),
     igst: round2(a.igst + (l.igst || 0)),
-  }), { gross: 0, discount: 0, taxable: 0, cgst: 0, sgst: 0, igst: 0 });
-  const grossTotal = round2(t.taxable + t.cgst + t.sgst + t.igst);
+    total_weight: round2(a.total_weight + (l.weight || 0)),
+  }), { gross: 0, discount: 0, taxable: 0, cgst: 0, sgst: 0, igst: 0, total_weight: 0 });
+
+  t.discount_amount = flatDiscount;
+  t.net_taxable = round2(t.taxable - flatDiscount);
+  t.other_charges = otherCharges;
+  const grossTotal = round2(t.net_taxable + t.cgst + t.sgst + t.igst + otherCharges);
   const grandTotal = Math.round(grossTotal);
   t.round_off = round2(grandTotal - grossTotal);
   t.grand_total = grandTotal;

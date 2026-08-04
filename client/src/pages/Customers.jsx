@@ -48,7 +48,7 @@ export default function Customers() {
 
   return (
     <div>
-      <PageHeader title="Customers / ग्राहक" subtitle="Sales parties with GST details for invoicing"
+      <PageHeader title="Customers" subtitle="Sales parties with GST details for invoicing"
         actions={<Button variant="primary" onClick={openNew}>+ New Customer</Button>} />
 
       <Card className="mb-4" pad={false}>
@@ -73,7 +73,7 @@ export default function Customers() {
       </Card>
 
       {modal && (
-        <Modal title={editing ? 'Edit Customer' : 'New Customer / नया ग्राहक'} onClose={() => setModal(false)}
+        <Modal title={editing ? 'Edit Customer' : 'New Customer'} onClose={() => setModal(false)}
           footer={<>
             <Button onClick={() => setModal(false)}>Cancel</Button>
             <Button variant="primary" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save Customer'}</Button>
@@ -81,7 +81,7 @@ export default function Customers() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Customer Name *" value={form.customer_name} onChange={set('customer_name')} autoFocus />
             <Input label="GSTIN" value={form.gstin} onChange={set('gstin')} />
-            <Select label="State / राज्य" value={form.state} onChange={set('state')}>
+            <Select label="State" value={form.state} onChange={set('state')}>
               <option value="">Select state...</option>
               {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
             </Select>
