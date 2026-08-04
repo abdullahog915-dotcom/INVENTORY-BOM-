@@ -161,6 +161,7 @@ export default function Items() {
   const csvRows = items.map(r => ({
     sku: r.sku, item_name: r.item_name, item_type: r.item_type, category: r.category, group: r.grp,
     unit: r.unit, hsn_code: r.hsn_code, gst_pct: r.gst_pct, reorder_level: r.reorder_level,
+    last_purchase_rate: r.last_purchase_rate,
     current_stock_qty: r.current_stock_qty, avg_cost_rate: r.avg_cost_rate,
     current_stock_value: r.current_stock_value, sale_rate: r.sale_rate,
   }));
@@ -189,6 +190,7 @@ export default function Items() {
             columns={[{ key: 'sku', label: 'SKU' }, { key: 'item_name', label: 'Item Name' }, { key: 'item_type', label: 'Type' },
               { key: 'category', label: 'Category' }, { key: 'group', label: 'Group' }, { key: 'unit', label: 'Unit' },
               { key: 'hsn_code', label: 'HSN' }, { key: 'gst_pct', label: 'GST %' }, { key: 'reorder_level', label: 'Reorder Level' },
+              { key: 'last_purchase_rate', label: 'Purchase Rate' },
               { key: 'current_stock_qty', label: 'Stock Qty' }, { key: 'avg_cost_rate', label: 'Avg Cost Rate' },
               { key: 'current_stock_value', label: 'Stock Value' }, { key: 'sale_rate', label: 'Sale Rate' }]}
             rows={csvRows} />
@@ -210,6 +212,7 @@ export default function Items() {
             { key: 'hsn_code', label: 'HSN' },
             { key: 'gst_pct', label: 'GST %', align: 'right', render: r => r.gst_pct ? `${r.gst_pct}%` : '—' },
             { key: 'reorder_level', label: 'Reorder', align: 'right', render: r => fmt(r.reorder_level) },
+            { key: 'last_purchase_rate', label: 'Purchase Rate', align: 'right', render: r => r.last_purchase_rate > 0 ? inr(r.last_purchase_rate) : '—' },
             { key: 'current_stock_qty', label: 'Stock', align: 'right',
               render: r => <span className={r.current_stock_qty <= r.reorder_level && r.reorder_level > 0 ? 'font-semibold text-rose-600' : ''}>{fmt(r.current_stock_qty)} {r.unit}</span> },
             { key: 'avg_cost_rate', label: 'Avg Cost', align: 'right', render: r => inr(r.avg_cost_rate) },

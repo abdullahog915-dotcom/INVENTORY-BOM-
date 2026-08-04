@@ -50,10 +50,11 @@ export function computeBomUnitCost(bomId, _visited = new Set()) {
   }
   materialCost = round2(materialCost);
   const labor = round2(bom.labor_cost || 0);
-  const base = round2((materialCost + labor) / (bom.output_qty || 1));
+  const outputQty = bom.output_qty || 1;
   const overheadPct = bom.overhead_pct || 0;
-  const overhead = round2(base * overheadPct / 100);
-  const unitCost = round2(base + overhead);
+  const overhead = round2((materialCost + labor) * overheadPct / 100);
+  const base = round2((materialCost + labor) / outputQty);
+  const unitCost = round2(base + overhead / outputQty);
 
   return { bom, lines: detail, materialCost, labor, overheadPct, overhead, unitCost, outputQty: bom.output_qty };
 }

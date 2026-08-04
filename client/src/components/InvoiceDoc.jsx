@@ -1,5 +1,5 @@
 import React from 'react';
-import { fmt, inr, fmtDate, amountInWords } from '../utils.js';
+import { fmt, inr, fmtDate, amountInWords, parseInvoiceTerms, parseBankDetails } from '../utils.js';
 
 /**
  * Full A4 GST invoice/PO document rendered for printing (mounted only while printing).
@@ -11,6 +11,28 @@ export default function InvoiceDoc({ kind, company = {}, party = {}, doc = {}, l
   const taxable = totals.taxable || 0, discount = totals.discount || 0;
   const grand = totals.grand_total != null ? totals.grand_total : taxable + cgst + sgst + igst;
   const words = amount_in_words || amountInWords(grand);
+
+  /* Terms & Conditions and Bank Details are stored as JSON in the DB; parse them
+     into clean, printable text (with graceful fallback to legacy plain text). */
+  const terms = parseInvoiceTerms(doc.terms_conditions || company.invoice_terms)
+    .map(t => String(t || '').trim()).filter(Boolean);
+  const bankObj = parseBankDetails(company.bank_details);
+  let bankLine = null;
+  if (company.bank_details) {
+    try {
+      const p = JSON.parse(company.bank_details);
+      if (p && typeof p === 'object' && !Array.isArray(p)) {
+        const parts = [
+          bankObj.bank_name && `Bank Name: ${bankObj.bank_name}`,
+          bankObj.branch && `Branch: ${bankObj.branch}`,
+          bankObj.account_no && `A/C No: ${bankObj.account_no}`,
+          bankObj.ifsc && `IFSC: ${bankObj.ifsc}`,
+          bankObj.holder_name && `Holder: ${bankObj.holder_name}`,
+        ].filter(Boolean);
+        if (parts.length) bankLine = parts.join(' | ');
+      }
+    } catch (e) {}
+  }
 
   const row = (l, i) => (
     <tr key={i} className="avoid-break">
@@ -35,12 +57,17 @@ export default function InvoiceDoc({ kind, company = {}, party = {}, doc = {}, l
     <div id="print-area" className="bg-white text-slate-900 text-sm">
       {/* Header */}
       <div className="flex justify-between items-start border-b-2 border-slate-800 pb-2 mb-3">
-        <div>
-          <div className="text-2xl font-bold">{company.name || 'Company Name'}</div>
-          <div className="text-xs text-slate-600 whitespace-pre-line">{company.address}</div>
-          <div className="text-xs text-slate-600">
-            {company.gstin ? <>GSTIN: <span className="font-mono">{company.gstin}</span> · </> : null}
-            {company.state || ''}
+        <div className="flex items-start gap-3">
+          {company.logo && (
+            <img src={company.logo} alt={`${company.name || 'Company'} logo`} className="h-16 w-16 object-contain shrink-0" />
+          )}
+          <div>
+            <div className="text-2xl font-bold">{company.name || 'Company Name'}</div>
+            <div className="text-xs text-slate-600 whitespace-pre-line">{company.address}</div>
+            <div className="text-xs text-slate-600">
+              {company.gstin ? <>GSTIN: <span className="font-mono">{company.gstin}</span> · </> : null}
+              {company.state || ''}
+            </div>
           </div>
         </div>
         <div className="text-right">
@@ -137,15 +164,19 @@ export default function InvoiceDoc({ kind, company = {}, party = {}, doc = {}, l
       {/* Footer */}
       <div className="grid grid-cols-2 gap-3 mt-4">
         <div className="text-xs">
-          <div className="text-[10px] font-bold uppercase text-slate-500 mb-1">Terms &amp; Conditions</div>
-          <div className="whitespace-pre-line text-slate-700">{doc.terms_conditions || company.invoice_terms || '—'}</div>
+          {terms.length > 0 && <>
+            <div className="text-[10px] font-bold uppercase text-slate-500 mb-1">Terms &amp; Conditions</div>
+            <ul className="text-slate-700 space-y-0.5 list-disc pl-4">{terms.map((t, i) => <li key={i}>{t}</li>)}</ul>
+          </>}
           {doc.notes && <>
             <div className="text-[10px] font-bold uppercase text-slate-500 mb-1 mt-2">Notes</div>
             <div className="whitespace-pre-line text-slate-700">{doc.notes}</div>
           </>}
           {company.bank_details && <>
             <div className="text-[10px] font-bold uppercase text-slate-500 mb-1 mt-2">Bank Details</div>
-            <div className="whitespace-pre-line text-slate-700">{company.bank_details}</div>
+            {bankLine
+              ? <div className="whitespace-pre-line text-slate-700">{bankLine}</div>
+              : <div className="whitespace-pre-line text-slate-700">{company.bank_details}</div>}
           </>}
         </div>
         <div className="text-right flex flex-col justify-end">

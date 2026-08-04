@@ -44,9 +44,11 @@ export default function BOM() {
       return s + qty * it.avg_cost_rate;
     }, 0);
     const labor = Number(form.labor_cost) || 0;
-    const base = (mat + labor) / (Number(form.output_qty) || 1);
-    const overhead = base * (Number(form.overhead_pct) || 0) / 100;
-    return { material: mat, base, overhead, unitCost: base + overhead };
+    const outputQty = Number(form.output_qty) || 1;
+    const overhead = (mat + labor) * (Number(form.overhead_pct) || 0) / 100;
+    const base = (mat + labor) / outputQty;
+    const unitCost = base + overhead / outputQty;
+    return { material: mat, base, overhead, unitCost };
   }, [form, items]);
 
   const save = async () => {

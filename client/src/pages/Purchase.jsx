@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api, qs } from '../api.js';
 import { inr, fmt, fmtDate, amountInWords, isSameState } from '../utils.js';
-import { PageHeader, Card, Input, Select, Button, Modal, Spinner, Badge, Confirm, useToast } from '../components/ui.jsx';
+import { PageHeader, Card, Input, Select, Button, Modal, Spinner, Badge, Confirm, useToast, UNITS, GST_SLABS, typeLabel } from '../components/ui.jsx';
 import DataTable from '../components/DataTable.jsx';
 import InvoiceDoc from '../components/InvoiceDoc.jsx';
 import { useCompany } from '../CompanyContext.jsx';
@@ -37,12 +37,17 @@ const emptyForm = () => ({
   place_of_supply: '', payment_terms: '', reference_no: '', notes: '', remarks: '', po_no: '',
   lines: [emptyLine()],
 });
+const emptyNewItem = () => ({ item_name: '', grp: '', category: '', unit: 'kg', hsn_code: '', gst_pct: 18 });
+const BASE_GROUP_NAMES = new Set(['Raw Material', 'Semi Finished', 'Finished Good', 'Scrap']);
 
 export default function Purchase() {
   const { current: company } = useCompany();
   const [pos, setPos] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [items, setItems] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [newItemLine, setNewItemLine] = useState(null);
+  const [newItemForm, setNewItemForm] = useState(emptyNewItem());
   const [filter, setFilter] = useState({ status: '', search: '' });
   const [createModal, setCreateModal] = useState(false);
   const [form, setForm] = useState(emptyForm());
@@ -60,8 +65,8 @@ export default function Purchase() {
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [filter.status, filter.search]);
 
   useEffect(() => {
-    Promise.all([api('/vendors'), api('/items')])
-      .then(([v, it]) => { setVendors(v); setItems(it); })
+    Promise.all([api('/vendors'), api('/items'), api('/items/groups')])
+      .then(([v, it, g]) => { setVendors(v); setItems(it); setGroups(g); })
       .catch(e => toast(e.message, 'error'));
   }, []);
 
@@ -154,6 +159,35 @@ export default function Purchase() {
 
   const setLine = (i, patch) => setForm(f => ({ ...f, lines: f.lines.map((x, xi) => xi === i ? { ...x, ...patch } : x) }));
 
+  const startNewItem = (i) => {
+    setLine(i, { item_id: '' });
+    setNewItemForm(emptyNewItem());
+    setNewItemLine(i);
+  };
+
+  /* Create a brand-new item from the inline form (same core fields as the full
+     New Item modal), then select it immediately in the current line. */
+  const createInlineItem = async (i) => {
+    if (!newItemForm.item_name.trim()) { toast('Item name required', 'error'); return; }
+    if (!newItemForm.grp) { toast('Select a group', 'error'); return; }
+    setBusy(true);
+    try {
+      const item = await api('/items', { method: 'POST', body: {
+        item_name: newItemForm.item_name.trim(),
+        grp: newItemForm.grp,
+        category: newItemForm.category.trim() || '',
+        unit: newItemForm.unit,
+        hsn_code: newItemForm.hsn_code.trim() || '',
+        gst_pct: newItemForm.gst_pct,
+      } });
+      setItems(prev => [item, ...(prev || [])]);
+      setLine(i, { item_id: String(item.item_id), gst_pct: item.gst_pct, rate: item.last_purchase_rate || 0 });
+      setNewItemLine(null);
+      toast(`Item ${item.sku} created`);
+    } catch (e) { toast(e.message, 'error'); }
+    finally { setBusy(false); }
+  };
+
   useEffect(() => {
     if (!printing || !detail) return;
     const t = setTimeout(() => { window.print(); setPrinting(false); }, 150);
@@ -240,30 +274,71 @@ export default function Purchase() {
           {form.lines.map((line, i) => {
             const c = computeLine(line, same);
             return (
-              <div key={i} className="grid grid-cols-12 gap-2 items-center mb-2 bg-slate-50 rounded-lg p-2">
-                <Select value={line.item_id} className="col-span-4"
-                  onChange={e => {
-                    const item = items.find(x => x.item_id === Number(e.target.value));
-                    setLine(i, { item_id: e.target.value, gst_pct: item ? item.gst_pct : line.gst_pct, rate: item ? item.last_purchase_rate : line.rate });
-                  }}>
-                  <option value="">Item...</option>
-                  {items.filter(x => x.item_type === 'RAW_MATERIAL').map(x => <option key={x.item_id} value={x.item_id}>{x.sku} — {x.item_name}</option>)}
-                </Select>
-                <Input type="number" step="any" min="0" placeholder="Qty" value={line.qty_ordered} className="col-span-1"
-                  onChange={e => setLine(i, { qty_ordered: e.target.value })} />
-                <Input type="number" step="any" min="0" placeholder="Rate ₹" value={line.rate} className="col-span-2"
-                  onChange={e => setLine(i, { rate: e.target.value })} />
-                <Input type="number" step="any" min="0" max="100" placeholder="Disc %" value={line.discount_pct} className="col-span-1"
-                  onChange={e => setLine(i, { discount_pct: e.target.value })} />
-                <Select value={line.gst_pct} className="col-span-1" onChange={e => setLine(i, { gst_pct: e.target.value })}>
-                  {[0, 5, 12, 18, 28].map(g => <option key={g} value={g}>{g}%</option>)}
-                </Select>
-                <div className="col-span-2 text-xs text-right text-slate-600 leading-tight">
-                  <div>Net {inr(c.taxable)}</div>
-                  <div className="text-[10px]">{same ? <>CGST {inr(c.cgst)}</> : <>IGST {inr(c.igst)}</>}</div>
+              <div key={i} className="bg-slate-50 rounded-lg p-2 mb-2">
+                <div className="grid grid-cols-12 gap-2 items-center">
+                  <Select value={line.item_id} className="col-span-4"
+                    onChange={e => {
+                      if (e.target.value === '__add_item__') { startNewItem(i); return; }
+                      const item = items.find(x => x.item_id === Number(e.target.value));
+                      setLine(i, { item_id: e.target.value, gst_pct: item ? item.gst_pct : line.gst_pct, rate: item ? item.last_purchase_rate : line.rate });
+                    }}>
+                    <option value="">Item...</option>
+                    {items.filter(x => x.item_type !== 'SCRAP').map(x => <option key={x.item_id} value={x.item_id}>{x.sku} — {x.item_name}</option>)}
+                    <option value="__add_item__">+ Add New Item...</option>
+                  </Select>
+                  <Input type="number" step="any" min="0" placeholder="Qty" value={line.qty_ordered} className="col-span-1"
+                    onChange={e => setLine(i, { qty_ordered: e.target.value })} />
+                  <Input type="number" step="any" min="0" placeholder="Rate ₹" value={line.rate} className="col-span-2"
+                    onChange={e => setLine(i, { rate: e.target.value })} />
+                  <Input type="number" step="any" min="0" max="100" placeholder="Disc %" value={line.discount_pct} className="col-span-1"
+                    onChange={e => setLine(i, { discount_pct: e.target.value })} />
+                  <Select value={line.gst_pct} className="col-span-1" onChange={e => setLine(i, { gst_pct: e.target.value })}>
+                    {[0, 5, 12, 18, 28].map(g => <option key={g} value={g}>{g}%</option>)}
+                  </Select>
+                  <div className="col-span-2 text-xs text-right text-slate-600 leading-tight">
+                    <div>Net {inr(c.taxable)}</div>
+                    <div className="text-[10px]">{same ? <>CGST {inr(c.cgst)}</> : <>IGST {inr(c.igst)}</>}</div>
+                  </div>
+                  <button className="col-span-1 text-rose-500 hover:text-rose-700 text-lg cursor-pointer"
+                    onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, xi) => xi !== i) }))}>×</button>
                 </div>
-                <button className="col-span-1 text-rose-500 hover:text-rose-700 text-lg cursor-pointer"
-                  onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, xi) => xi !== i) }))}>×</button>
+
+                {newItemLine === i && (
+                  <div className="mt-2 border border-indigo-200 bg-indigo-50/60 rounded-lg p-3">
+                    <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+                      <Input label="Item Name *" value={newItemForm.item_name} placeholder="e.g. Brass Ingot" autoFocus
+                        onChange={e => setNewItemForm(f => ({ ...f, item_name: e.target.value }))}
+                        onKeyDown={e => { if (e.key === 'Enter') createInlineItem(i); if (e.key === 'Escape') setNewItemLine(null); }} />
+                      <Select label="Group *" value={newItemForm.grp}
+                        onChange={e => setNewItemForm(f => ({ ...f, grp: e.target.value }))}>
+                        <option value="">Select group...</option>
+                        {groups.map(g => (
+                          <option key={g.name} value={g.name}>
+                            {BASE_GROUP_NAMES.has(g.name) ? g.name : `${g.name} (${typeLabel(g.item_type)})`}
+                          </option>
+                        ))}
+                      </Select>
+                      <Input label="Category" value={newItemForm.category} placeholder="e.g. BRASS"
+                        onChange={e => setNewItemForm(f => ({ ...f, category: e.target.value }))} />
+                      <Select label="Unit *" value={newItemForm.unit}
+                        onChange={e => setNewItemForm(f => ({ ...f, unit: e.target.value }))}>
+                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                      </Select>
+                      <Input label="HSN" value={newItemForm.hsn_code} placeholder="e.g. 7403"
+                        onChange={e => setNewItemForm(f => ({ ...f, hsn_code: e.target.value }))} />
+                      <Select label="GST %" value={newItemForm.gst_pct}
+                        onChange={e => setNewItemForm(f => ({ ...f, gst_pct: Number(e.target.value) }))}>
+                        {GST_SLABS.map(g => <option key={g} value={g}>{g}%</option>)}
+                      </Select>
+                    </div>
+                    <div className="flex justify-end gap-2 mt-2">
+                      <Button variant="primary" onClick={() => createInlineItem(i)} disabled={busy || !newItemForm.item_name.trim() || !newItemForm.grp}>
+                        {busy ? 'Creating...' : 'Create Item'}
+                      </Button>
+                      <Button onClick={() => setNewItemLine(null)}>Cancel</Button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

@@ -46,6 +46,7 @@ export default function Sales() {
   const [filter, setFilter] = useState({ status: '', search: '' });
   const [createModal, setCreateModal] = useState(false);
   const [form, setForm] = useState(emptyForm());
+  const [editingId, setEditingId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [busy, setBusy] = useState(false);
   const [cancelTarget, setCancelTarget] = useState(null);
@@ -66,12 +67,42 @@ export default function Sales() {
   }, []);
 
   const openNew = async () => {
+    setEditingId(null);
     setForm(emptyForm());
     try {
       const { next_no } = await api('/sales/next-no');
       setForm(f => ({ ...f, invoice_no: next_no }));
     } catch { /* auto server-side */ }
     setCreateModal(true);
+  };
+
+  const openEdit = async (row) => {
+    try {
+      const d = await api(`/sales/${row.invoice_id}`);
+      setEditingId(d.invoice_id);
+      setDetail(null);
+      setForm({
+        invoice_no: d.invoice_no || '',
+        invoice_date: d.invoice_date ? String(d.invoice_date).slice(0, 10) : '',
+        due_date: d.due_date ? String(d.due_date).slice(0, 10) : '',
+        payment_terms: d.payment_terms || '',
+        po_reference: d.po_reference || '',
+        place_of_supply: d.place_of_supply || '',
+        authorized_signatory: d.authorized_signatory || '',
+        customer_name: d.customer_name || '',
+        customer_gstin: d.customer_gstin || '',
+        customer_state: d.customer_state || '',
+        billing_address: d.billing_address || '',
+        shipping_address: d.shipping_address || '',
+        terms_conditions: d.terms_conditions || '',
+        notes: d.notes || '',
+        lines: (d.lines || []).map(l => ({
+          item_id: String(l.item_id), qty: l.qty, rate: l.rate,
+          discount_pct: l.discount_pct, gst_pct: l.gst_pct,
+        })),
+      });
+      setCreateModal(true);
+    } catch (e) { toast(e.message, 'error'); }
   };
 
   const openDetail = async (row) => {
@@ -110,16 +141,26 @@ export default function Sales() {
     });
   };
 
-  const createInvoice = async () => {
+  const saveInvoice = async () => {
     if (!form.customer_name.trim()) { toast('Customer name required', 'error'); return; }
     const lines = form.lines.filter(l => l.item_id && Number(l.qty) > 0);
     if (lines.length === 0) { toast('Add at least one item line', 'error'); return; }
     setBusy(true);
     try {
-      const created = await api('/sales', { method: 'POST', body: { ...form, lines: lines.map(l => ({ item_id: Number(l.item_id), qty: Number(l.qty), rate: Number(l.rate), gst_pct: Number(l.gst_pct), discount_pct: Number(l.discount_pct) || 0 })) } });
-      toast(`Invoice ${created.invoice_no} created (DRAFT)`);
-      setCreateModal(false); load();
-      setDetail(created);
+      const payload = { ...form, lines: lines.map(l => ({ item_id: Number(l.item_id), qty: Number(l.qty), rate: Number(l.rate), gst_pct: Number(l.gst_pct), discount_pct: Number(l.discount_pct) || 0 })) };
+      let id;
+      if (editingId) {
+        await api(`/sales/${editingId}`, { method: 'PUT', body: payload });
+        id = editingId;
+        toast('Invoice updated (DRAFT)');
+      } else {
+        const created = await api('/sales', { method: 'POST', body: payload });
+        id = created.invoice_id;
+        toast(`Invoice ${created.invoice_no} created (DRAFT)`);
+      }
+      const full = await api(`/sales/${id}`);
+      setDetail(full);
+      setCreateModal(false); setEditingId(null); load();
     } catch (e) { toast(e.message, 'error'); }
     finally { setBusy(false); }
   };
@@ -202,6 +243,7 @@ export default function Sales() {
           { key: 'status', label: 'Status', align: 'center', render: r => statusBadge(r.status) },
           { key: 'actions', label: '', sortable: false, align: 'right', render: r => (
             <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+              {r.status === 'DRAFT' && <Button variant="ghost" onClick={() => openEdit(r)}>Edit</Button>}
               <Button variant="ghost" onClick={() => openDetail(r)}>Open</Button>
               {r.status !== 'CANCELLED' && r.status !== 'PAID' && <Button variant="danger" onClick={() => setCancelTarget(r)}>Cancel</Button>}
             </div>
@@ -209,12 +251,12 @@ export default function Sales() {
         ]} />
       </Card>
 
-      {/* ---------- New invoice ---------- */}
+      {/* ---------- New / Edit invoice ---------- */}
       {createModal && (
-        <Modal title="New Sales Invoice" onClose={() => setCreateModal(false)} wide
+        <Modal title={editingId ? `Edit Invoice — ${form.invoice_no}` : 'New Sales Invoice'} onClose={() => setCreateModal(false)} wide
           footer={<>
             <Button onClick={() => setCreateModal(false)}>Cancel</Button>
-            <Button variant="primary" onClick={createInvoice} disabled={busy}>{busy ? 'Creating...' : 'Save as Draft'}</Button>
+            <Button variant="primary" onClick={saveInvoice} disabled={busy}>{busy ? (editingId ? 'Saving...' : 'Creating...') : (editingId ? 'Save Changes' : 'Save as Draft')}</Button>
           </>}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
             <Input label="Invoice No (auto if blank)" value={form.invoice_no} onChange={e => setForm(f => ({ ...f, invoice_no: e.target.value }))} />
@@ -314,6 +356,7 @@ export default function Sales() {
         <Modal title={`${detail.invoice_no} — ${detail.customer_name}`} onClose={() => setDetail(null)} wide
           footer={<>
             {detail.status === 'DRAFT' && <>
+              <Button onClick={() => openEdit(detail)} disabled={busy}>Edit</Button>
               <Button variant="danger" onClick={() => setCancelTarget(detail)}>Cancel</Button>
               <Button variant="success" onClick={() => transition('SENT')} disabled={busy}>Mark Sent (post stock)</Button>
             </>}

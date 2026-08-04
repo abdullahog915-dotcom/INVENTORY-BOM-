@@ -181,13 +181,15 @@ router.put('/:id', (req, res) => {
   if (b.grp) upsertGroup(String(b.grp).trim(), b.item_type || item.item_type, req.companyId);
   db.prepare(`UPDATE items SET
       item_name=?, item_type=?, category=?, grp=?, unit=?, hsn_code=?, gst_pct=?, reorder_level=?,
-      sale_rate=?, is_active=?, updated_at=CURRENT_TIMESTAMP
+      last_purchase_rate=?, sale_rate=?, is_active=?, updated_at=CURRENT_TIMESTAMP
       WHERE item_id=?`)
     .run(b.item_name ?? item.item_name, b.item_type ?? item.item_type, b.category ?? item.category,
       b.grp !== undefined ? b.grp : item.grp, b.unit ?? item.unit, b.hsn_code ?? item.hsn_code,
       b.gst_pct !== undefined ? Number(b.gst_pct) : item.gst_pct,
-      Number(b.reorder_level) ?? item.reorder_level,
-      Number(b.sale_rate) ?? item.sale_rate, b.is_active !== undefined ? Number(b.is_active) : item.is_active,
+      b.reorder_level !== undefined ? Number(b.reorder_level) : item.reorder_level,
+      b.last_purchase_rate !== undefined ? Number(b.last_purchase_rate) : item.last_purchase_rate,
+      b.sale_rate !== undefined ? Number(b.sale_rate) : item.sale_rate,
+      b.is_active !== undefined ? Number(b.is_active) : item.is_active,
       item.item_id);
   res.json(db.prepare('SELECT * FROM items WHERE item_id=?').get(item.item_id));
 });

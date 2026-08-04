@@ -9,13 +9,14 @@ const STATUSES = ['DRAFT', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED'];
 
 function nextInvoiceNo() {
   const year = new Date().getFullYear();
-  const row = db.prepare('SELECT invoice_no FROM sales_invoices ORDER BY invoice_id DESC LIMIT 1').get();
-  let seq = 1;
-  if (row) {
-    const m = row.invoice_no.match(/(\d+)$/);
-    if (m) seq = parseInt(m[1], 10) + 1;
+  const prefix = `INV-${year}-`;
+  const rows = db.prepare('SELECT invoice_no FROM sales_invoices WHERE invoice_no LIKE ?').all(`${prefix}%`);
+  let max = 0;
+  for (const r of rows) {
+    const m = String(r.invoice_no).match(/(\d+)$/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
   }
-  return `INV-${year}-${String(seq).padStart(4, '0')}`;
+  return `${prefix}${String(max + 1).padStart(4, '0')}`;
 }
 
 const INVOICE_SELECT = `SELECT si.*,
@@ -28,7 +29,7 @@ const INVOICE_SELECT = `SELECT si.*,
 
 const DERIVED = `CASE WHEN si.status='SENT' AND si.due_date IS NOT NULL AND date(si.due_date) < date('now') THEN 'OVERDUE' ELSE si.status END`;
 
-router.get('/next-no', (req, res) => res.json({ next_no: nextInvoiceNo() }));
+router.get('/sales/next-no', (req, res) => res.json({ next_no: nextInvoiceNo() }));
 
 router.get('/sales', (req, res) => {
   const { search = '', status = '' } = req.query;
