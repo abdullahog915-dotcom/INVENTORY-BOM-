@@ -7,7 +7,7 @@ import { INDIAN_STATES } from '../constants.js';
 
 const empty = { customer_name: '', billing_address: '', shipping_address: '', gstin: '', state: '', contact_no: '' };
 
-export default function Customers() {
+export default function Customers({ createReq }) {
   const [rows, setRows] = useState(null);
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(false);
@@ -25,6 +25,12 @@ export default function Customers() {
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [search]);
 
   const openNew = () => { setForm(empty); setEditing(null); setModal(true); };
+
+  useEffect(() => {
+    if (createReq && createReq.page === 'customers') openNew();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createReq]);
+
   const openEdit = (r) => {
     setEditing(r);
     setForm({ customer_name: r.customer_name, billing_address: r.billing_address || '', shipping_address: r.shipping_address || '', gstin: r.gstin || '', state: r.state || '', contact_no: r.contact_no || '' });

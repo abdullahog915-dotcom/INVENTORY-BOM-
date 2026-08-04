@@ -4,7 +4,7 @@ import { inr, fmt, fmtDate } from '../utils.js';
 import { PageHeader, Card, Input, Select, Button, Modal, Spinner, Badge, useToast, cx } from '../components/ui.jsx';
 import DataTable from '../components/DataTable.jsx';
 
-export default function BOM() {
+export default function BOM({ createReq }) {
   const [items, setItems] = useState(null);
   const [boms, setBoms] = useState(null);
   const [filterItem, setFilterItem] = useState('');
@@ -33,6 +33,11 @@ export default function BOM() {
   });
 
   const openNew = (outputItemId = '') => { setForm(newForm(outputItemId)); setModal(true); };
+
+  useEffect(() => {
+    if (createReq && createReq.page === 'bom') openNew();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createReq]);
 
   const previewCost = useMemo(() => {
     if (!form || !items) return null;

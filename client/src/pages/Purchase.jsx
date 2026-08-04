@@ -41,7 +41,7 @@ const emptyNewItem = () => ({ item_name: '', grp: '', category: '', unit: 'kg', 
 const emptyNewVendor = () => ({ vendor_name: '', vendor_type: 'SUPPLIER', contact_no: '', address: '', gstin: '' });
 const BASE_GROUP_NAMES = new Set(['Raw Material', 'Semi Finished', 'Finished Good', 'Scrap']);
 
-export default function Purchase() {
+export default function Purchase({ createReq }) {
   const { current: company } = useCompany();
   const [pos, setPos] = useState(null);
   const [vendors, setVendors] = useState([]);
@@ -81,6 +81,11 @@ export default function Purchase() {
     } catch { /* server auto */ }
     setCreateModal(true);
   };
+
+  useEffect(() => {
+    if (createReq && createReq.page === 'purchase') openNew();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createReq]);
 
   const openDetail = async (row) => {
     try {

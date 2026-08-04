@@ -39,7 +39,7 @@ const emptyForm = () => ({
 });
 const emptyNewCustomer = () => ({ customer_name: '', contact_no: '', gstin: '', state: '', billing_address: '', shipping_address: '' });
 
-export default function Sales() {
+export default function Sales({ createReq }) {
   const { current: company } = useCompany();
   const [inv, setInv] = useState(null);
   const [customers, setCustomers] = useState([]);
@@ -78,6 +78,11 @@ export default function Sales() {
     } catch { /* auto server-side */ }
     setCreateModal(true);
   };
+
+  useEffect(() => {
+    if (createReq && createReq.page === 'sales') openNew();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createReq]);
 
   const openEdit = async (row) => {
     try {

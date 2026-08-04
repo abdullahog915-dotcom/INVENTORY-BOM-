@@ -6,7 +6,7 @@ import DataTable from '../components/DataTable.jsx';
 
 const empty = { vendor_name: '', vendor_type: 'SUPPLIER', contact_no: '', address: '', gstin: '' };
 
-export default function Vendors() {
+export default function Vendors({ createReq }) {
   const [vendors, setVendors] = useState(null);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
@@ -21,6 +21,12 @@ export default function Vendors() {
   useEffect(() => { load(); }, []);
 
   const openNew = () => { setForm(empty); setEditing(null); setModal(true); };
+
+  useEffect(() => {
+    if (createReq && createReq.page === 'vendors') openNew();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createReq]);
+
   const openEdit = (v) => { setEditing(v); setForm(v); setModal(true); };
 
   const save = async () => {

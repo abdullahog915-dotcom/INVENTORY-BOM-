@@ -77,7 +77,7 @@ function TypedGroupField({ label, options = [], value, onChange, onAdd }) {
   );
 }
 
-export default function Items() {
+export default function Items({ createReq }) {
   const [items, setItems] = useState(null);
   const [categories, setCategories] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -104,6 +104,12 @@ export default function Items() {
   }, [filters.search, filters.type, filters.category]);
 
   const openNew = () => { setForm(empty); setEditing(null); setModal(true); };
+
+  useEffect(() => {
+    if (createReq && createReq.page === 'items') openNew();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createReq]);
+
   const openEdit = (row) => {
     const grp = groups.find(x => x.name === row.grp);
     setEditing(row);

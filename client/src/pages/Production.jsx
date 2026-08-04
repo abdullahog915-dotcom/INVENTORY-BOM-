@@ -11,7 +11,7 @@ const statusBadge = (s) => ({
   CANCELLED: <Badge color="red">Cancelled</Badge>,
 }[s] || s);
 
-export default function Production() {
+export default function Production({ createReq }) {
   const [orders, setOrders] = useState(null);
   const [items, setItems] = useState([]);
   const [boms, setBoms] = useState([]);
@@ -31,6 +31,10 @@ export default function Production() {
     catch (e) { toast(e.message, 'error'); setOrders([]); }
   };
   useEffect(() => { load(); }, [filter.status]);
+
+  useEffect(() => {
+    if (createReq && createReq.page === 'production') setCreateModal(true);
+  }, [createReq]);
 
   useEffect(() => {
     Promise.all([api('/items'), api('/bom')])

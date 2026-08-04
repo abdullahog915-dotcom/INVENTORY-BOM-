@@ -11,7 +11,7 @@ const jwStatus = (s) => ({
   CANCELLED: <Badge color="red">Cancelled</Badge>,
 }[s] || s);
 
-export default function JobWork() {
+export default function JobWork({ createReq }) {
   const [orders, setOrders] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [items, setItems] = useState([]);
@@ -31,6 +31,10 @@ export default function JobWork() {
     catch (e) { toast(e.message, 'error'); setOrders([]); }
   };
   useEffect(() => { load(); }, [filters.pending_only, filters.status]);
+
+  useEffect(() => {
+    if (createReq && createReq.page === 'jobwork') setCreateModal(true);
+  }, [createReq]);
 
   useEffect(() => {
     Promise.all([api('/vendors'), api('/items')])
