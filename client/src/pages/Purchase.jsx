@@ -38,6 +38,7 @@ const emptyForm = () => ({
   lines: [emptyLine()],
 });
 const emptyNewItem = () => ({ item_name: '', grp: '', category: '', unit: 'kg', hsn_code: '', gst_pct: 18 });
+const emptyNewVendor = () => ({ vendor_name: '', vendor_type: 'SUPPLIER', contact_no: '', address: '', gstin: '' });
 const BASE_GROUP_NAMES = new Set(['Raw Material', 'Semi Finished', 'Finished Good', 'Scrap']);
 
 export default function Purchase() {
@@ -48,6 +49,8 @@ export default function Purchase() {
   const [groups, setGroups] = useState([]);
   const [newItemLine, setNewItemLine] = useState(null);
   const [newItemForm, setNewItemForm] = useState(emptyNewItem());
+  const [showNewVendor, setShowNewVendor] = useState(false);
+  const [newVendorForm, setNewVendorForm] = useState(emptyNewVendor());
   const [filter, setFilter] = useState({ status: '', search: '' });
   const [createModal, setCreateModal] = useState(false);
   const [form, setForm] = useState(emptyForm());
@@ -159,6 +162,33 @@ export default function Purchase() {
 
   const setLine = (i, patch) => setForm(f => ({ ...f, lines: f.lines.map((x, xi) => xi === i ? { ...x, ...patch } : x) }));
 
+  const handleVendorChange = (val) => {
+    if (val === '__add_vendor__') { setShowNewVendor(true); return; }
+    const v = vendors.find(x => x.vendor_id === Number(val));
+    setForm(f => ({ ...f, vendor_id: val, place_of_supply: v?.state || f.place_of_supply }));
+  };
+
+  /* Create a brand-new vendor from the inline form, then select it in the PO
+     without losing any other fields already filled in. */
+  const createInlineVendor = async () => {
+    if (!newVendorForm.vendor_name.trim()) { toast('Vendor name required', 'error'); return; }
+    setBusy(true);
+    try {
+      const v = await api('/vendors', { method: 'POST', body: {
+        vendor_name: newVendorForm.vendor_name.trim(),
+        vendor_type: newVendorForm.vendor_type,
+        contact_no: newVendorForm.contact_no.trim() || '',
+        address: newVendorForm.address.trim() || '',
+        gstin: newVendorForm.gstin.trim() || '',
+      } });
+      setVendors(prev => [v, ...(prev || [])]);
+      setForm(f => ({ ...f, vendor_id: String(v.vendor_id), place_of_supply: v.state || f.place_of_supply }));
+      setShowNewVendor(false);
+      toast(`Vendor ${v.vendor_name} created`);
+    } catch (e) { toast(e.message, 'error'); }
+    finally { setBusy(false); }
+  };
+
   const startNewItem = (i) => {
     setLine(i, { item_id: '' });
     setNewItemForm(emptyNewItem());
@@ -250,9 +280,10 @@ export default function Purchase() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
             <Select label="Vendor *" value={form.vendor_id}
-              onChange={e => setForm(f => ({ ...f, vendor_id: e.target.value, place_of_supply: vendors.find(v => v.vendor_id === Number(e.target.value))?.state || f.place_of_supply }))}>
+              onChange={e => handleVendorChange(e.target.value)}>
               <option value="">Select vendor...</option>
               {vendors.map(v => <option key={v.vendor_id} value={v.vendor_id}>{v.vendor_name}</option>)}
+              <option value="__add_vendor__">+ Add New Vendor...</option>
             </Select>
             <Input label="Vendor Invoice No" value={form.vendor_invoice_no} onChange={e => setForm(f => ({ ...f, vendor_invoice_no: e.target.value }))} />
             <Select label="Place of Supply" value={form.place_of_supply} onChange={e => setForm(f => ({ ...f, place_of_supply: e.target.value }))}>
@@ -263,6 +294,33 @@ export default function Purchase() {
             <Input label="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="col-span-2" />
             <Input label="Remarks" value={form.remarks} onChange={e => setForm(f => ({ ...f, remarks: e.target.value }))} className="col-span-2" />
           </div>
+          {showNewVendor && (
+            <div className="mb-3 border border-indigo-200 bg-indigo-50/60 rounded-lg p-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <Input label="Vendor Name *" value={newVendorForm.vendor_name} placeholder="e.g. Sharma Metals" autoFocus
+                  onChange={e => setNewVendorForm(f => ({ ...f, vendor_name: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') createInlineVendor(); if (e.key === 'Escape') setShowNewVendor(false); }} />
+                <Select label="Type" value={newVendorForm.vendor_type}
+                  onChange={e => setNewVendorForm(f => ({ ...f, vendor_type: e.target.value }))}>
+                  <option value="SUPPLIER">Supplier</option>
+                  <option value="JOB_WORKER">Job Worker</option>
+                  <option value="BOTH">Both</option>
+                </Select>
+                <Input label="Contact No." value={newVendorForm.contact_no}
+                  onChange={e => setNewVendorForm(f => ({ ...f, contact_no: e.target.value }))} />
+                <Input label="GSTIN" value={newVendorForm.gstin}
+                  onChange={e => setNewVendorForm(f => ({ ...f, gstin: e.target.value }))} />
+                <Input label="Address" value={newVendorForm.address}
+                  onChange={e => setNewVendorForm(f => ({ ...f, address: e.target.value }))} className="col-span-2" />
+              </div>
+              <div className="flex justify-end gap-2 mt-2">
+                <Button variant="primary" onClick={createInlineVendor} disabled={busy || !newVendorForm.vendor_name.trim()}>
+                  {busy ? 'Creating...' : 'Create Vendor'}
+                </Button>
+                <Button onClick={() => setShowNewVendor(false)}>Cancel</Button>
+              </div>
+            </div>
+          )}
           <div className={`text-xs font-bold mb-2 ${same ? 'text-emerald-700' : 'text-rose-700'}`}>
             {same ? 'Intra-state purchase → CGST + SGST (ITC claimable)' : 'Inter-state purchase → IGST (ITC claimable)'}
           </div>

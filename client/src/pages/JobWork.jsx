@@ -18,6 +18,9 @@ export default function JobWork() {
   const [filters, setFilters] = useState({ pending_only: '0', status: '' });
   const [createModal, setCreateModal] = useState(false);
   const [form, setForm] = useState({ vendor_id: '', item_id: '', qty_sent: 1, job_charges: 0, sent_date: '', remarks: '' });
+  const [showNewVendor, setShowNewVendor] = useState(false);
+  const [newVendorForm, setNewVendorForm] = useState({ vendor_name: '', vendor_type: 'JOB_WORKER', contact_no: '', address: '', gstin: '' });
+  const [busy, setBusy] = useState(false);
   const [receiveFor, setReceiveFor] = useState(null);
   const [receiveForm, setReceiveForm] = useState({ qty_received: '', job_charges: 0, received_date: '' });
   const [cancelTarget, setCancelTarget] = useState(null);
@@ -37,6 +40,32 @@ export default function JobWork() {
 
   const jobWorkers = vendors.filter(v => v.vendor_type === 'JOB_WORKER' || v.vendor_type === 'BOTH');
   const jwItems = items.filter(i => i.item_type === 'SEMI_FINISHED' || i.item_type === 'FINISHED_GOOD');
+
+  const handleJobWorkerChange = (val) => {
+    if (val === '__add_vendor__') { setShowNewVendor(true); return; }
+    setForm(f => ({ ...f, vendor_id: val }));
+  };
+
+  /* Create a brand-new vendor from the inline form, then select it in the job
+     work form without losing any other fields already filled in. */
+  const createInlineVendor = async () => {
+    if (!newVendorForm.vendor_name.trim()) { toast('Vendor name required', 'error'); return; }
+    setBusy(true);
+    try {
+      const v = await api('/vendors', { method: 'POST', body: {
+        vendor_name: newVendorForm.vendor_name.trim(),
+        vendor_type: newVendorForm.vendor_type,
+        contact_no: newVendorForm.contact_no.trim() || '',
+        address: newVendorForm.address.trim() || '',
+        gstin: newVendorForm.gstin.trim() || '',
+      } });
+      setVendors(prev => [v, ...(prev || [])]);
+      setForm(f => ({ ...f, vendor_id: String(v.vendor_id) }));
+      setShowNewVendor(false);
+      toast(`Vendor ${v.vendor_name} created`);
+    } catch (e) { toast(e.message, 'error'); }
+    finally { setBusy(false); }
+  };
 
   const create = async () => {
     if (!form.vendor_id || !form.item_id || !(Number(form.qty_sent) > 0)) { toast('Select vendor, item and qty', 'error'); return; }
@@ -133,9 +162,10 @@ export default function JobWork() {
             <Button variant="primary" onClick={create}>Send Material</Button>
           </>}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Select label="Job Worker *" value={form.vendor_id} onChange={e => setForm(f => ({ ...f, vendor_id: e.target.value }))}>
+            <Select label="Job Worker *" value={form.vendor_id} onChange={e => handleJobWorkerChange(e.target.value)}>
               <option value="">Select...</option>
               {jobWorkers.map(v => <option key={v.vendor_id} value={v.vendor_id}>{v.vendor_name}</option>)}
+              <option value="__add_vendor__">+ Add New Vendor...</option>
             </Select>
             <Select label="Item * (polishing / plating)" value={form.item_id} onChange={e => setForm(f => ({ ...f, item_id: e.target.value }))}>
               <option value="">Select...</option>
@@ -146,6 +176,33 @@ export default function JobWork() {
             <Input label="Sent Date" type="date" value={form.sent_date} onChange={e => setForm(f => ({ ...f, sent_date: e.target.value }))} />
             <Input label="Remarks" value={form.remarks} onChange={e => setForm(f => ({ ...f, remarks: e.target.value }))} />
           </div>
+          {showNewVendor && (
+            <div className="mt-3 border border-indigo-200 bg-indigo-50/60 rounded-lg p-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input label="Vendor Name *" value={newVendorForm.vendor_name} placeholder="e.g. Sharma Polishing" autoFocus
+                  onChange={e => setNewVendorForm(f => ({ ...f, vendor_name: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') createInlineVendor(); if (e.key === 'Escape') setShowNewVendor(false); }} />
+                <Select label="Type" value={newVendorForm.vendor_type}
+                  onChange={e => setNewVendorForm(f => ({ ...f, vendor_type: e.target.value }))}>
+                  <option value="SUPPLIER">Supplier</option>
+                  <option value="JOB_WORKER">Job Worker</option>
+                  <option value="BOTH">Both</option>
+                </Select>
+                <Input label="Contact No." value={newVendorForm.contact_no}
+                  onChange={e => setNewVendorForm(f => ({ ...f, contact_no: e.target.value }))} />
+                <Input label="GSTIN" value={newVendorForm.gstin}
+                  onChange={e => setNewVendorForm(f => ({ ...f, gstin: e.target.value }))} />
+                <Input label="Address" value={newVendorForm.address}
+                  onChange={e => setNewVendorForm(f => ({ ...f, address: e.target.value }))} className="sm:col-span-2" />
+              </div>
+              <div className="flex justify-end gap-2 mt-2">
+                <Button variant="primary" onClick={createInlineVendor} disabled={busy || !newVendorForm.vendor_name.trim()}>
+                  {busy ? 'Creating...' : 'Create Vendor'}
+                </Button>
+                <Button onClick={() => setShowNewVendor(false)}>Cancel</Button>
+              </div>
+            </div>
+          )}
         </Modal>
       )}
 

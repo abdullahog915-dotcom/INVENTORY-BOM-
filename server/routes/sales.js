@@ -76,6 +76,31 @@ function getInvoice(id, companyId) {
   };
 }
 
+/* Sales invoices store a snapshot of the customer on the invoice (free text),
+   but must also link to the customers master. Resolve the customer:
+   explicit customer_id wins; otherwise match by name case-insensitively and
+   auto-create a customers record when it does not exist yet. */
+function resolveCustomer(b, companyId) {
+  if (b.customer_id) {
+    const c = db.prepare('SELECT * FROM customers WHERE customer_id=? AND company_id=?').get(b.customer_id, companyId);
+    if (c) return c;
+  }
+  const name = b.customer_name ? String(b.customer_name).trim() : '';
+  if (!name) return null;
+  let c = db.prepare('SELECT * FROM customers WHERE company_id=? AND LOWER(customer_name)=LOWER(?)')
+    .get(companyId, name);
+  if (!c) {
+    const info = db.prepare(`INSERT INTO customers
+        (company_id, customer_name, billing_address, shipping_address, gstin, state, contact_no)
+        VALUES (?,?,?,?,?,?,?)`)
+      .run(companyId, name, b.billing_address || null, b.shipping_address || null,
+        b.customer_gstin || null, b.customer_state || null,
+        b.customer_phone || b.customer_contact_no || null);
+    c = db.prepare('SELECT * FROM customers WHERE customer_id=?').get(info.lastInsertRowid);
+  }
+  return c;
+}
+
 router.get('/sales/outstanding', (req, res) => {
   const { customer = '' } = req.query;
   if (!customer) return res.json({ outstanding: 0, paid: 0, total: 0 });
@@ -98,7 +123,9 @@ router.get('/sales/:id', (req, res) => {
   const inv = getInvoice(req.params.id, req.companyId);
   if (!inv) return res.status(404).json({ error: 'Invoice not found' });
   const company = db.prepare('SELECT * FROM companies WHERE company_id=?').get(req.companyId);
-  const customer = db.prepare('SELECT contact_no FROM customers WHERE customer_name=? AND company_id=?')
+  let customer = null;
+  if (inv.customer_id) customer = db.prepare('SELECT contact_no FROM customers WHERE customer_id=?').get(inv.customer_id);
+  if (!customer) customer = db.prepare('SELECT contact_no FROM customers WHERE customer_name=? AND company_id=?')
     .get(inv.customer_name, req.companyId);
   res.json({ ...inv, company, customer_phone: customer?.contact_no || '' });
 });
@@ -117,11 +144,12 @@ router.post('/sales', (req, res) => {
       if (!item) throw new Error(`Item #${l.item_id} not found`);
       if (Number(l.qty) <= 0) throw new Error(`Line for ${item.sku} needs qty > 0`);
     }
+    const customer = resolveCustomer(b, req.companyId);
     let invoiceNo = b.invoice_no ? String(b.invoice_no).trim() : '';
     if (!invoiceNo) invoiceNo = nextInvoiceNo();
     const customFields = b.custom_fields && Array.isArray(b.custom_fields) ? JSON.stringify(b.custom_fields) : null;
     const info = db.prepare(`INSERT INTO sales_invoices
-        (company_id, invoice_no, customer_name, customer_gstin, customer_state, billing_address, shipping_address,
+        (company_id, invoice_no, customer_id, customer_name, customer_gstin, customer_state, billing_address, shipping_address,
          place_of_supply, invoice_date, due_date, payment_terms, po_reference,
          terms_conditions, notes, authorized_signatory, remarks,
          transport_mode, vehicle_no, delivery_date, reverse_charge, eway_bill_no,
@@ -130,9 +158,9 @@ router.post('/sales', (req, res) => {
          custom_fields, shipping_name, shipping_gstin, shipping_state, shipping_contact,
          discount_amount, freight_charges, packing_charges, insurance_charges,
          status, stock_posted)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?,?,?,?,?, 'DRAFT', 0)`)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?, 'DRAFT', 0)`)
       .run(
-        req.companyId, invoiceNo, b.customer_name.trim(), b.customer_gstin || null,
+        req.companyId, invoiceNo, customer?.customer_id || null, b.customer_name.trim(), b.customer_gstin || null,
         b.customer_state || null, b.billing_address || null, b.shipping_address || null,
         b.place_of_supply || null, b.invoice_date || now(), b.due_date || null,
         b.payment_terms || null, b.po_reference || null,
@@ -191,10 +219,11 @@ router.put('/sales/:id', (req, res) => {
       if (!item) throw new Error(`Item #${l.item_id} not found`);
       if (Number(l.qty) <= 0) throw new Error(`Line for ${item.sku} needs qty > 0`);
     }
+    const customer = resolveCustomer(b, req.companyId);
 
     const customFields = b.custom_fields && Array.isArray(b.custom_fields) ? JSON.stringify(b.custom_fields) : null;
     db.prepare(`UPDATE sales_invoices SET
-        customer_name=?, customer_gstin=?, customer_state=?, billing_address=?, shipping_address=?,
+        customer_id=?, customer_name=?, customer_gstin=?, customer_state=?, billing_address=?, shipping_address=?,
         place_of_supply=?, invoice_date=?, due_date=?, payment_terms=?, po_reference=?,
         terms_conditions=?, notes=?, authorized_signatory=?, remarks=?,
         transport_mode=?, vehicle_no=?, delivery_date=?, reverse_charge=?, eway_bill_no=?,
@@ -204,7 +233,7 @@ router.put('/sales/:id', (req, res) => {
         discount_amount=?, freight_charges=?, packing_charges=?, insurance_charges=?
         WHERE invoice_id=? AND company_id=?`)
       .run(
-        b.customer_name.trim(), b.customer_gstin || null, b.customer_state || null,
+        customer?.customer_id || null, b.customer_name.trim(), b.customer_gstin || null, b.customer_state || null,
         b.billing_address || null, b.shipping_address || null, b.place_of_supply || null,
         b.invoice_date || inv.invoice_date, b.due_date || null, b.payment_terms || null,
         b.po_reference || null, b.terms_conditions || company.invoice_terms || null,

@@ -6,7 +6,8 @@ const router = Router();
 router.get('/', (req, res) => {
   const { search = '' } = req.query;
   let sql = `SELECT c.*,
-      (SELECT COUNT(*) FROM sales_invoices si WHERE si.customer_name=c.customer_name AND si.company_id=c.company_id) AS invoice_count
+      (SELECT COUNT(*) FROM sales_invoices si WHERE si.company_id=c.company_id
+         AND (si.customer_id=c.customer_id OR (si.customer_id IS NULL AND si.customer_name=c.customer_name))) AS invoice_count
       FROM customers c WHERE c.company_id=?`;
   const params = [req.companyId];
   if (search) { sql += ` AND c.customer_name LIKE ?`; params.push(`%${search}%`); }

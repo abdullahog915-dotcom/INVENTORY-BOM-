@@ -69,6 +69,30 @@ function rebuildSalesInvoices() {
   db.exec('PRAGMA foreign_keys=ON');
 }
 
+/* Sales invoices used to keep customer details as free text only. Link every
+   existing invoice to a customers record, creating one (case-insensitive by
+   name) when it does not already exist in the customers master. */
+function backfillCustomersFromInvoices(companyId) {
+  if (!has('sales_invoices', 'customer_id')) return;
+  const rows = db.prepare(`SELECT customer_name,
+        billing_address, shipping_address, customer_gstin AS gstin, customer_state AS state
+      FROM sales_invoices WHERE customer_id IS NULL AND customer_name IS NOT NULL
+      GROUP BY LOWER(customer_name)`).all();
+  if (rows.length === 0) return;
+  const find = db.prepare('SELECT customer_id FROM customers WHERE company_id=? AND LOWER(customer_name)=LOWER(?)');
+  const ins = db.prepare(`INSERT INTO customers (company_id, customer_name, billing_address, shipping_address, gstin, state)
+      VALUES (?,?,?,?,?,?)`);
+  const upd = db.prepare('UPDATE sales_invoices SET customer_id=? WHERE company_id=? AND customer_id IS NULL AND LOWER(customer_name)=LOWER(?)');
+  for (const r of rows) {
+    let c = find.get(companyId, r.customer_name);
+    if (!c) {
+      const info = ins.run(companyId, r.customer_name, r.billing_address, r.shipping_address, r.gstin, r.state);
+      c = { customer_id: info.lastInsertRowid };
+    }
+    upd.run(c.customer_id, companyId, r.customer_name);
+  }
+}
+
 function backfillLineTaxes() {
   /* Legacy line rows predating the tax columns have taxable_value=0. Recompute. */
   const salesLines = db.prepare(`
@@ -174,6 +198,7 @@ export function runMigrations() {
   addCol('sales_invoices', 'freight_charges', 'REAL DEFAULT 0');
   addCol('sales_invoices', 'packing_charges', 'REAL DEFAULT 0');
   addCol('sales_invoices', 'insurance_charges', 'REAL DEFAULT 0');
+  addCol('sales_invoices', 'customer_id', 'INTEGER REFERENCES customers(customer_id)');
 
   /* Invoice Line extensions */
   for (const t of ['purchase_order_lines', 'sales_invoice_lines']) {
@@ -192,6 +217,12 @@ export function runMigrations() {
   addCol('job_work_orders', 'company_id', 'INTEGER REFERENCES companies(company_id)');
 
   rebuildSalesInvoices();
+
+  /* link sales invoices to the customers master (also creates missing customers) */
+  backfillCustomersFromInvoices(defaultId);
+
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_si_customer ON sales_invoices(customer_id);
+           CREATE INDEX IF NOT EXISTS idx_customers_company ON customers(company_id);`);
 
   /* backfill company_id on existing rows */
   for (const t of MASTER_TABLES) {

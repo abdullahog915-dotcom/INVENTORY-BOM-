@@ -32,11 +32,12 @@ const statusBadge = (s) => ({
 
 const emptyLine = () => ({ item_id: '', qty: 1, rate: 0, discount_pct: 0, gst_pct: 18 });
 const emptyForm = () => ({
-  customer_name: '', customer_gstin: '', customer_state: '', billing_address: '', shipping_address: '',
+  customer_id: '', customer_name: '', customer_gstin: '', customer_state: '', billing_address: '', shipping_address: '',
   place_of_supply: '', invoice_date: new Date().toISOString().slice(0, 10), due_date: '', payment_terms: '',
   po_reference: '', terms_conditions: '', notes: '', authorized_signatory: '', invoice_no: '',
   lines: [emptyLine()],
 });
+const emptyNewCustomer = () => ({ customer_name: '', contact_no: '', gstin: '', state: '', billing_address: '', shipping_address: '' });
 
 export default function Sales() {
   const { current: company } = useCompany();
@@ -46,6 +47,8 @@ export default function Sales() {
   const [filter, setFilter] = useState({ status: '', search: '' });
   const [createModal, setCreateModal] = useState(false);
   const [form, setForm] = useState(emptyForm());
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState(emptyNewCustomer());
   const [editingId, setEditingId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -81,6 +84,8 @@ export default function Sales() {
       const d = await api(`/sales/${row.invoice_id}`);
       setEditingId(d.invoice_id);
       setDetail(null);
+      const matched = (customers || []).find(c =>
+        String(c.customer_name || '').trim().toLowerCase() === String(d.customer_name || '').trim().toLowerCase());
       setForm({
         invoice_no: d.invoice_no || '',
         invoice_date: d.invoice_date ? String(d.invoice_date).slice(0, 10) : '',
@@ -89,6 +94,7 @@ export default function Sales() {
         po_reference: d.po_reference || '',
         place_of_supply: d.place_of_supply || '',
         authorized_signatory: d.authorized_signatory || '',
+        customer_id: matched ? matched.customer_id : '',
         customer_name: d.customer_name || '',
         customer_gstin: d.customer_gstin || '',
         customer_state: d.customer_state || '',
@@ -124,8 +130,32 @@ export default function Sales() {
   const pickCustomer = (id) => {
     const c = customers.find(x => x.customer_id === Number(id));
     if (!c) return;
-    setForm(f => ({ ...f, customer_name: c.customer_name, customer_gstin: c.gstin || '', customer_state: c.state || '',
+    setForm(f => ({ ...f, customer_id: c.customer_id, customer_name: c.customer_name, customer_gstin: c.gstin || '', customer_state: c.state || '',
       billing_address: c.billing_address || '', shipping_address: c.shipping_address || '', place_of_supply: c.state || '' }));
+  };
+
+  /* Create a brand-new customer from the inline form, then select it in the
+     invoice without losing any other fields already filled in. */
+  const createInlineCustomer = async () => {
+    if (!newCustomerForm.customer_name.trim()) { toast('Customer name required', 'error'); return; }
+    setBusy(true);
+    try {
+      const c = await api('/customers', { method: 'POST', body: {
+        customer_name: newCustomerForm.customer_name.trim(),
+        contact_no: newCustomerForm.contact_no.trim() || '',
+        gstin: newCustomerForm.gstin.trim() || '',
+        state: newCustomerForm.state || '',
+        billing_address: newCustomerForm.billing_address.trim() || '',
+        shipping_address: newCustomerForm.shipping_address.trim() || '',
+      } });
+      setCustomers(prev => [c, ...(prev || [])]);
+      setForm(f => ({ ...f, customer_id: c.customer_id, customer_name: c.customer_name, customer_gstin: c.gstin || '',
+        customer_state: c.state || '', billing_address: c.billing_address || '', shipping_address: c.shipping_address || '',
+        place_of_supply: c.state || '' }));
+      setShowNewCustomer(false);
+      toast(`Customer ${c.customer_name} created`);
+    } catch (e) { toast(e.message, 'error'); }
+    finally { setBusy(false); }
   };
 
   const setPaymentTerms = (pt) => {
@@ -147,7 +177,7 @@ export default function Sales() {
     if (lines.length === 0) { toast('Add at least one item line', 'error'); return; }
     setBusy(true);
     try {
-      const payload = { ...form, lines: lines.map(l => ({ item_id: Number(l.item_id), qty: Number(l.qty), rate: Number(l.rate), gst_pct: Number(l.gst_pct), discount_pct: Number(l.discount_pct) || 0 })) };
+      const payload = { ...form, customer_id: form.customer_id ? Number(form.customer_id) : null, lines: lines.map(l => ({ item_id: Number(l.item_id), qty: Number(l.qty), rate: Number(l.rate), gst_pct: Number(l.gst_pct), discount_pct: Number(l.discount_pct) || 0 })) };
       let id;
       if (editingId) {
         await api(`/sales/${editingId}`, { method: 'PUT', body: payload });
@@ -274,17 +304,16 @@ export default function Sales() {
               {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
             </Select>
             <Input label="Authorized Signatory" value={form.authorized_signatory} onChange={e => setForm(f => ({ ...f, authorized_signatory: e.target.value }))} />
-            <div className="flex items-end">
-              <Select label="Copy from Customer" onChange={e => { pickCustomer(e.target.value); e.target.value = ''; }}>
-                <option value="">Select customer...</option>
-                {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.customer_name}</option>)}
-              </Select>
-            </div>
           </div>
 
           <div className="border border-slate-200 rounded-lg p-3 mb-3 bg-slate-50">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Input label="Customer Name *" value={form.customer_name} onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))} />
+              <Select label="Customer *" value={form.customer_id || ''}
+                onChange={e => { if (e.target.value === '__add_customer__') setShowNewCustomer(true); else pickCustomer(e.target.value); }}>
+                <option value="">Select customer...</option>
+                {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.customer_name}</option>)}
+                <option value="__add_customer__">+ Add New Customer...</option>
+              </Select>
               <Input label="Customer GSTIN" value={form.customer_gstin} onChange={e => setForm(f => ({ ...f, customer_gstin: e.target.value }))} />
               <Select label="Customer State" value={form.customer_state} onChange={e => setForm(f => ({ ...f, customer_state: e.target.value }))}>
                 <option value="">Select state...</option>
@@ -298,6 +327,35 @@ export default function Sales() {
               <Input label="Billing Address" value={form.billing_address} onChange={e => setForm(f => ({ ...f, billing_address: e.target.value }))} className="col-span-2" />
               <Input label="Shipping Address (blank = billing)" value={form.shipping_address} onChange={e => setForm(f => ({ ...f, shipping_address: e.target.value }))} className="col-span-2" />
             </div>
+
+            {showNewCustomer && (
+              <div className="mt-2 border border-indigo-200 bg-indigo-50/60 rounded-lg p-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <Input label="Customer Name *" value={newCustomerForm.customer_name} placeholder="e.g. YOGI PAAD" autoFocus
+                    onChange={e => setNewCustomerForm(f => ({ ...f, customer_name: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') createInlineCustomer(); if (e.key === 'Escape') setShowNewCustomer(false); }} />
+                  <Input label="Contact No" value={newCustomerForm.contact_no}
+                    onChange={e => setNewCustomerForm(f => ({ ...f, contact_no: e.target.value }))} />
+                  <Input label="GSTIN" value={newCustomerForm.gstin}
+                    onChange={e => setNewCustomerForm(f => ({ ...f, gstin: e.target.value }))} />
+                  <Select label="State" value={newCustomerForm.state}
+                    onChange={e => setNewCustomerForm(f => ({ ...f, state: e.target.value }))}>
+                    <option value="">Select state...</option>
+                    {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </Select>
+                  <Input label="Billing Address" value={newCustomerForm.billing_address}
+                    onChange={e => setNewCustomerForm(f => ({ ...f, billing_address: e.target.value }))} className="col-span-2" />
+                  <Input label="Shipping Address (blank = billing)" value={newCustomerForm.shipping_address}
+                    onChange={e => setNewCustomerForm(f => ({ ...f, shipping_address: e.target.value }))} className="col-span-2" />
+                </div>
+                <div className="flex justify-end gap-2 mt-2">
+                  <Button variant="primary" onClick={createInlineCustomer} disabled={busy || !newCustomerForm.customer_name.trim()}>
+                    {busy ? 'Creating...' : 'Create Customer'}
+                  </Button>
+                  <Button onClick={() => setShowNewCustomer(false)}>Cancel</Button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-between items-center mb-2">
