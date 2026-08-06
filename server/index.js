@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 
 import { db, now, getDefaultCompanyId } from './db.js';
 import { ensureSeed } from './seed.js';
+import { repairLedgerBalances } from './ledger.js';
 
 import itemsRouter from './routes/items.js';
 import customersRouter from './routes/customers.js';
@@ -24,6 +25,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
 
 ensureSeed();
+repairLedgerBalances();
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));

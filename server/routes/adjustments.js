@@ -24,7 +24,7 @@ router.post('/', (req, res) => {
       item_id,
       txn_type,
       qty: Number(qty),
-      rate: Number(rate) || 0,
+      rate: rate === undefined || rate === null || rate === '' ? undefined : Number(rate),
       reference_type: 'MANUAL',
       txn_date: txn_date || now(),
       remarks: remarks || 'Manual adjustment',

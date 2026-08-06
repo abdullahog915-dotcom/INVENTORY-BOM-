@@ -36,60 +36,65 @@ const MASTER_TABLES = ['items', 'vendors', 'bom_headers', 'production_orders', '
 function rebuildSalesInvoices() {
   if (has('sales_invoices', 'due_date')) return;
   db.exec('PRAGMA foreign_keys=OFF');
-  db.exec('DROP TABLE IF EXISTS sales_invoices_new');
-  db.exec(`
-    CREATE TABLE sales_invoices_new (
-      invoice_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id INTEGER REFERENCES companies(company_id),
-      invoice_no TEXT UNIQUE NOT NULL,
-      customer_name TEXT NOT NULL,
-      customer_gstin TEXT,
-      customer_state TEXT,
-      billing_address TEXT,
-      shipping_address TEXT,
-      place_of_supply TEXT,
-      invoice_date TEXT DEFAULT CURRENT_TIMESTAMP,
-      due_date TEXT,
-      payment_terms TEXT,
-      po_reference TEXT,
-      status TEXT DEFAULT 'DRAFT' CHECK(status IN ('DRAFT','SENT','PAID','OVERDUE','CANCELLED')),
-      stock_posted INTEGER DEFAULT 0,
-      terms_conditions TEXT,
-      notes TEXT,
-      authorized_signatory TEXT,
-      remarks TEXT
-    );
-  `);
-  db.prepare(`INSERT INTO sales_invoices_new
-      (invoice_id, invoice_no, customer_name, invoice_date, status, remarks)
-      SELECT invoice_id, invoice_no, customer_name, invoice_date,
-             CASE WHEN status='POSTED' THEN 'SENT' ELSE status END, remarks FROM sales_invoices`).run();
-  db.exec('DROP TABLE sales_invoices');
-  db.exec('ALTER TABLE sales_invoices_new RENAME TO sales_invoices');
-  db.exec('PRAGMA foreign_keys=ON');
+  try {
+    db.exec('DROP TABLE IF EXISTS sales_invoices_new');
+    db.exec(`
+      CREATE TABLE sales_invoices_new (
+        invoice_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER REFERENCES companies(company_id),
+        invoice_no TEXT UNIQUE NOT NULL,
+        customer_name TEXT NOT NULL,
+        customer_gstin TEXT,
+        customer_state TEXT,
+        billing_address TEXT,
+        shipping_address TEXT,
+        place_of_supply TEXT,
+        invoice_date TEXT DEFAULT CURRENT_TIMESTAMP,
+        due_date TEXT,
+        payment_terms TEXT,
+        po_reference TEXT,
+        status TEXT DEFAULT 'DRAFT' CHECK(status IN ('DRAFT','SENT','PAID','OVERDUE','CANCELLED')),
+        stock_posted INTEGER DEFAULT 0,
+        terms_conditions TEXT,
+        notes TEXT,
+        authorized_signatory TEXT,
+        remarks TEXT
+      );
+    `);
+    db.prepare(`INSERT INTO sales_invoices_new
+        (invoice_id, invoice_no, customer_name, invoice_date, status, remarks)
+        SELECT invoice_id, invoice_no, customer_name, invoice_date,
+               CASE WHEN status='POSTED' THEN 'SENT' ELSE status END, remarks FROM sales_invoices`).run();
+    db.exec('DROP TABLE sales_invoices');
+    db.exec('ALTER TABLE sales_invoices_new RENAME TO sales_invoices');
+  } finally {
+    db.exec('PRAGMA foreign_keys=ON');
+  }
 }
 
 /* Sales invoices used to keep customer details as free text only. Link every
    existing invoice to a customers record, creating one (case-insensitive by
-   name) when it does not already exist in the customers master. */
-function backfillCustomersFromInvoices(companyId) {
+   name) when it does not already exist in the customers master. Scoped per
+   company so an invoice never links to another company's customer. */
+function backfillCustomersFromInvoices() {
   if (!has('sales_invoices', 'customer_id')) return;
-  const rows = db.prepare(`SELECT customer_name,
+  const rows = db.prepare(`SELECT company_id, customer_name,
         billing_address, shipping_address, customer_gstin AS gstin, customer_state AS state
       FROM sales_invoices WHERE customer_id IS NULL AND customer_name IS NOT NULL
-      GROUP BY LOWER(customer_name)`).all();
+        AND company_id IS NOT NULL
+      GROUP BY company_id, LOWER(customer_name)`).all();
   if (rows.length === 0) return;
   const find = db.prepare('SELECT customer_id FROM customers WHERE company_id=? AND LOWER(customer_name)=LOWER(?)');
   const ins = db.prepare(`INSERT INTO customers (company_id, customer_name, billing_address, shipping_address, gstin, state)
       VALUES (?,?,?,?,?,?)`);
   const upd = db.prepare('UPDATE sales_invoices SET customer_id=? WHERE company_id=? AND customer_id IS NULL AND LOWER(customer_name)=LOWER(?)');
   for (const r of rows) {
-    let c = find.get(companyId, r.customer_name);
+    let c = find.get(r.company_id, r.customer_name);
     if (!c) {
-      const info = ins.run(companyId, r.customer_name, r.billing_address, r.shipping_address, r.gstin, r.state);
+      const info = ins.run(r.company_id, r.customer_name, r.billing_address, r.shipping_address, r.gstin, r.state);
       c = { customer_id: info.lastInsertRowid };
     }
-    upd.run(c.customer_id, companyId, r.customer_name);
+    upd.run(c.customer_id, r.company_id, r.customer_name);
   }
 }
 
@@ -218,9 +223,6 @@ export function runMigrations() {
   addCol('sales_returns', 'company_id', 'INTEGER REFERENCES companies(company_id)');
   addCol('job_work_orders', 'company_id', 'INTEGER REFERENCES companies(company_id)');
 
-  /* link sales invoices to the customers master (also creates missing customers) */
-  backfillCustomersFromInvoices(defaultId);
-
   db.exec(`CREATE INDEX IF NOT EXISTS idx_si_customer ON sales_invoices(customer_id);
            CREATE INDEX IF NOT EXISTS idx_customers_company ON customers(company_id);`);
 
@@ -230,6 +232,10 @@ export function runMigrations() {
       db.prepare(`UPDATE "${t}" SET company_id=? WHERE company_id IS NULL`).run(defaultId);
     }
   }
+
+  /* Links sales invoices to the customers master (also creates missing
+     customers). Runs after the company_id backfill, which it groups by. */
+  backfillCustomersFromInvoices();
 
   db.exec(`CREATE INDEX IF NOT EXISTS idx_ledger_company ON stock_ledger(company_id);
            CREATE INDEX IF NOT EXISTS idx_items_company ON items(company_id);

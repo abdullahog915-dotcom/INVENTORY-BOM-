@@ -12,9 +12,11 @@ export function getBomById(bomId) {
 }
 
 export function getBomLines(bomId) {
+  /* LEFT JOIN so a line whose component row is missing surfaces as an error
+     downstream instead of being silently dropped from the requirements. */
   return db
     .prepare(`SELECT bl.*, i.sku, i.item_name, i.unit, i.item_type, i.avg_cost_rate
-              FROM bom_lines bl JOIN items i ON i.item_id = bl.component_item_id
+              FROM bom_lines bl LEFT JOIN items i ON i.item_id = bl.component_item_id
               WHERE bl.bom_id=?`)
     .all(bomId);
 }
@@ -46,6 +48,7 @@ export function computeBomUnitCost(bomId, _visited = new Set()) {
   const detail = [];
   for (const l of lines) {
     const item = db.prepare('SELECT * FROM items WHERE item_id=?').get(l.component_item_id);
+    if (!item) throw new Error(`BOM line references missing item #${l.component_item_id}`);
     const rate = componentUnitCost(item, visited);
     const qty = round2(l.qty_required * (1 + (l.wastage_pct || 0) / 100));
     const lineValue = round2(qty * rate);
@@ -85,6 +88,7 @@ export function explodeBom(outputItemId, targetQty, _visited = new Set(), bomId 
 
   for (const l of lines) {
     const item = db.prepare('SELECT * FROM items WHERE item_id=?').get(l.component_item_id);
+    if (!item) throw new Error(`BOM line references missing item #${l.component_item_id}`);
     const reqQty = round2(l.qty_required * (1 + (l.wastage_pct || 0) / 100) * scale);
 
     const childBom = item.item_type === 'SEMI_FINISHED' ? getActiveBom(item.item_id) : null;
@@ -103,8 +107,34 @@ export function explodeBom(outputItemId, targetQty, _visited = new Set(), bomId 
 }
 
 /**
+ * Total labour to produce `needQty` of a BOM's output, including the labour of
+ * every nested semi-finished BOM at its own required quantity.
+ * The visited set is copied per branch so a component used in two places is
+ * costed both times, while a cycle still terminates.
+ */
+function bomLaborCost(bom, needQty, _visited = new Set()) {
+  if (_visited.has(bom.bom_id)) return 0;
+  const visited = new Set(_visited);
+  visited.add(bom.bom_id);
+
+  const batches = needQty / (bom.output_qty || 1);
+  let labor = (bom.labor_cost || 0) * batches;
+
+  for (const line of getBomLines(bom.bom_id)) {
+    const comp = db.prepare('SELECT * FROM items WHERE item_id=?').get(line.component_item_id);
+    if (!comp) throw new Error(`BOM line references missing item #${line.component_item_id}`);
+    if (comp.item_type !== 'SEMI_FINISHED') continue;
+    const childBom = getActiveBom(comp.item_id);
+    if (!childBom || visited.has(childBom.bom_id)) continue;
+    const lineQty = line.qty_required * (1 + (line.wastage_pct || 0) / 100) * batches;
+    labor += bomLaborCost(childBom, lineQty, visited);
+  }
+  return labor;
+}
+
+/**
  * Estimated cost breakdown for producing `plannedQty` of an item.
- * Includes labour and overhead from nested semi-finished BOMs.
+ * Includes labour from nested semi-finished BOMs.
  *
  * @param {number} outputItemId  - the item to produce
  * @param {number} plannedQty    - planned output quantity
@@ -116,27 +146,13 @@ export function estimateProductionCost(outputItemId, plannedQty, bomId = null) {
 
   const explosion = explodeBom(outputItemId, plannedQty, new Set(), bomId);
   let material = 0;
-  let nestedLabor = 0;
 
   for (const { item, qty } of explosion.values()) {
     material += qty * round2(item.avg_cost_rate);
   }
 
-  // Add labour and overhead from intermediate semi-finished BOMs
-  const lines = getBomLines(bom.bom_id);
-  for (const line of lines) {
-    const comp = db.prepare('SELECT * FROM items WHERE item_id=?').get(line.component_item_id);
-    if (comp && comp.item_type === 'SEMI_FINISHED') {
-      const childBom = getActiveBom(comp.item_id);
-      if (childBom) {
-        const scale = line.qty_required * (1 + (line.wastage_pct || 0) / 100);
-        nestedLabor += round2((childBom.labor_cost || 0) * scale);
-      }
-    }
-  }
-
   material = round2(material);
-  const labor = round2((bom.labor_cost || 0) * plannedQty / (bom.output_qty || 1)) + nestedLabor;
+  const labor = round2(bomLaborCost(bom, plannedQty));
   const overhead = round2((material + labor) * (bom.overhead_pct || 0) / 100);
 
   return {
