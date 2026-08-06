@@ -33,6 +33,10 @@ export function postStockTransaction(p) {
   const curQty = round2(item.current_stock_qty);
   const curRate = round2(item.avg_cost_rate);
 
+  if (sign < 0 && curQty < qty) {
+    throw new Error(`Insufficient stock: available ${curQty} ${item.unit}, trying to remove ${qty}`);
+  }
+
   let rate;
   let value;
   let newRate = curRate;
@@ -49,7 +53,7 @@ export function postStockTransaction(p) {
   }
 
   const newQty = round2(curQty + sign * qty);
-  const newValue = round2(newQty * newRate);
+  const newValue = round2(sign > 0 ? newQty * newRate : newQty * (sign < 0 ? rate : newRate));
   value = round2(value);
 
   const txnDate = p.txn_date || now();
@@ -76,7 +80,7 @@ export function postStockTransaction(p) {
 export function openingBalance(itemId, fromDate) {
   const row = db
     .prepare(`SELECT balance_qty, balance_value FROM stock_ledger
-              WHERE item_id=? AND date(txn_date) < date(?) ORDER BY ledger_id DESC LIMIT 1`)
+              WHERE item_id=? AND date(txn_date) < date(?) ORDER BY txn_date DESC, ledger_id DESC LIMIT 1`)
     .get(itemId, fromDate);
   return { qty: round2(row?.balance_qty || 0), value: round2(row?.balance_value || 0) };
 }
@@ -85,7 +89,7 @@ export function openingBalance(itemId, fromDate) {
 export function closingBalance(itemId, toDate) {
   const row = db
     .prepare(`SELECT balance_qty, balance_value FROM stock_ledger
-              WHERE item_id=? AND date(txn_date) <= date(?) ORDER BY ledger_id DESC LIMIT 1`)
+              WHERE item_id=? AND date(txn_date) <= date(?) ORDER BY txn_date DESC, ledger_id DESC LIMIT 1`)
     .get(itemId, toDate);
   return { qty: round2(row?.balance_qty || 0), value: round2(row?.balance_value || 0) };
 }

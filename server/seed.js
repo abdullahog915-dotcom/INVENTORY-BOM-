@@ -128,15 +128,29 @@ function completeProduction(companyId, outputItemId, plannedQty, completedQty, d
 
 function createSales(companyId, customer, date, lines) {
   const seq = db.prepare('SELECT COUNT(*) c FROM sales_invoices').get().c + 1;
-  const cust = typeof customer === 'object' ? customer
-    : db.prepare('SELECT * FROM customers WHERE customer_name=? AND company_id=?').get(customer, companyId);
+  let cust = null;
+  let custName = '';
+  let custId = null;
+  if (typeof customer === 'object') {
+    cust = customer;
+    custName = customer.customer_name;
+    custId = customer.customer_id;
+  } else if (typeof customer === 'number') {
+    cust = db.prepare('SELECT * FROM customers WHERE customer_id=? AND company_id=?').get(customer, companyId);
+    custName = cust?.customer_name || '';
+    custId = customer;
+  } else {
+    cust = db.prepare('SELECT * FROM customers WHERE customer_name=? AND company_id=?').get(customer, companyId);
+    custName = customer;
+    custId = cust?.customer_id || null;
+  }
   const state = cust?.state || companyState(companyId);
   const same = isSameState(state, companyState(companyId));
   const invInfo = db.prepare(`INSERT INTO sales_invoices
-    (company_id, invoice_no, customer_name, customer_state, invoice_date, status, stock_posted, terms_conditions, remarks)
-    VALUES (?,?,?,?,?,'SENT',1,NULL,'Seed data')`).run(
+    (company_id, invoice_no, customer_id, customer_name, customer_state, invoice_date, status, stock_posted, terms_conditions, remarks)
+    VALUES (?,?,?,?,?,?,'SENT',1,NULL,'Seed data')`).run(
       companyId, `INV-${new Date().getFullYear()}-${String(seq).padStart(4, '0')}`,
-      typeof customer === 'object' ? customer.name : customer, state, date);
+      custId, custName, state, date);
   const invId = invInfo.lastInsertRowid;
   const ins = db.prepare(`INSERT INTO sales_invoice_lines
     (invoice_id, item_id, qty, qty_returned, rate, gst_pct, hsn_code, unit, discount_pct,

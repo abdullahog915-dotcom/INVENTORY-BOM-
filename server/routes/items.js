@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db.js';
+import { db, now } from '../db.js';
 import { round2 } from '../ledger.js';
 
 const router = Router();
@@ -18,13 +18,13 @@ function generateSku(itemType, category) {
   const cat = (category || 'GEN').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5);
   const like = `${prefix}-${cat}-%`;
   /* sku is globally UNIQUE (across all companies) so search without company filter */
-  const row = db
-    .prepare(`SELECT sku FROM items WHERE sku LIKE ? ORDER BY sku DESC LIMIT 1`)
-    .get(like);
+  const rows = db
+    .prepare(`SELECT sku FROM items WHERE sku LIKE ? ORDER BY sku`)
+    .all(like);
   let seq = 1;
-  if (row) {
+  for (const row of rows) {
     const m = row.sku.match(/(\d+)$/);
-    seq = m ? parseInt(m[1], 10) + 1 : 1;
+    if (m) seq = Math.max(seq, parseInt(m[1], 10) + 1);
   }
   return `${prefix}-${cat}-${String(seq).padStart(3, '0')}`;
 }
@@ -162,8 +162,8 @@ router.post('/', (req, res) => {
       const newVal = round2(prevVal + stockValue);
       db.prepare(`INSERT INTO stock_ledger
         (company_id, item_id, txn_date, txn_type, qty, rate, value, balance_qty, balance_value, remarks)
-        VALUES (?,?,CURRENT_TIMESTAMP,'ADJUSTMENT_IN',?,?,?,?,?,?)`)
-        .run(req.companyId, newItem.item_id, openingQty, avgCost, stockValue, newBal, newVal, 'Opening balance (item creation)');
+        VALUES (?,?,?,'ADJUSTMENT_IN',?,?,?,?,?,?)`)
+        .run(req.companyId, newItem.item_id, now(), openingQty, avgCost, stockValue, newBal, newVal, 'Opening balance (item creation)');
     }
 
     res.status(201).json(newItem);
@@ -183,8 +183,12 @@ router.put('/:id', (req, res) => {
       item_name=?, item_type=?, category=?, grp=?, unit=?, hsn_code=?, gst_pct=?, reorder_level=?,
       last_purchase_rate=?, sale_rate=?, is_active=?, updated_at=CURRENT_TIMESTAMP
       WHERE item_id=?`)
-    .run(b.item_name ?? item.item_name, b.item_type ?? item.item_type, b.category ?? item.category,
-      b.grp !== undefined ? b.grp : item.grp, b.unit ?? item.unit, b.hsn_code ?? item.hsn_code,
+    .run(b.item_name !== undefined ? b.item_name : item.item_name,
+      b.item_type !== undefined ? b.item_type : item.item_type,
+      b.category !== undefined ? b.category : item.category,
+      b.grp !== undefined ? b.grp : item.grp,
+      b.unit !== undefined ? b.unit : item.unit,
+      b.hsn_code !== undefined ? b.hsn_code : item.hsn_code,
       b.gst_pct !== undefined ? Number(b.gst_pct) : item.gst_pct,
       b.reorder_level !== undefined ? Number(b.reorder_level) : item.reorder_level,
       b.last_purchase_rate !== undefined ? Number(b.last_purchase_rate) : item.last_purchase_rate,

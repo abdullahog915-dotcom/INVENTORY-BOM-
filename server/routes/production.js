@@ -7,13 +7,14 @@ const router = Router();
 
 function nextOrderNo() {
   const year = new Date().getFullYear();
-  const row = db.prepare('SELECT order_no FROM production_orders ORDER BY prod_order_id DESC LIMIT 1').get();
-  let seq = 1;
-  if (row) {
-    const m = row.order_no.match(/(\d+)$/);
-    if (m) seq = parseInt(m[1], 10) + 1;
+  const prefix = `PRD-${year}-`;
+  const rows = db.prepare('SELECT order_no FROM production_orders WHERE order_no LIKE ?').all(`${prefix}%`);
+  let max = 0;
+  for (const r of rows) {
+    const m = String(r.order_no).match(/(\d+)$/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
   }
-  return `PO-${year}-${String(seq).padStart(4, '0')}`;
+  return `${prefix}${String(max + 1).padStart(4, '0')}`;
 }
 
 const ORDER_SELECT = `SELECT po.*, oi.sku AS output_sku, oi.item_name AS output_name, oi.unit AS output_unit,
@@ -75,7 +76,7 @@ router.post('/:id/check-stock', (req, res) => {
   const order = db.prepare('SELECT * FROM production_orders WHERE prod_order_id=? AND company_id=?').get(req.params.id, req.companyId);
   if (!order) return res.status(404).json({ error: 'Production order not found' });
   try {
-    const est = estimateProductionCost(order.output_item_id, order.planned_qty);
+    const est = estimateProductionCost(order.output_item_id, order.planned_qty, order.bom_id);
     res.json({ requirements: est.requirements, hasShortfall: est.requirements.some(r => r.shortfall > 0) });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -93,7 +94,7 @@ router.post('/:id/complete', (req, res) => {
   if (completedQty > order.planned_qty) return res.status(400).json({ error: 'completed_qty cannot exceed planned_qty' });
 
   const bom = db.prepare('SELECT * FROM bom_headers WHERE bom_id=?').get(order.bom_id);
-  const requirements = [...explodeBom(order.output_item_id, completedQty).values()];
+  const requirements = [...explodeBom(order.output_item_id, completedQty, new Set(), order.bom_id).values()];
   const provided = new Map((req.body.consumptions || []).map(c => [c.item_id, Number(c.qty_actual)]));
 
   const tx = db.transaction(() => {

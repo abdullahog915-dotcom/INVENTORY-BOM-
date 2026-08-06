@@ -19,10 +19,10 @@ router.get('/', (req, res) => {
 
   const itemMeta = item_id ? db.prepare('SELECT * FROM items WHERE item_id=? AND company_id=?').get(item_id, req.companyId) : null;
   let opening = { qty: 0, value: 0 };
-  if (itemMeta) {
+  if (itemMeta && from) {
     const o = db.prepare(`SELECT balance_qty, balance_value FROM stock_ledger
-        WHERE item_id=? AND date(txn_date) < date(?) ORDER BY ledger_id DESC LIMIT 1`)
-      .get(item_id, from || '9999-12-31');
+        WHERE item_id=? AND date(txn_date) < date(?) ORDER BY txn_date DESC, ledger_id DESC LIMIT 1`)
+      .get(item_id, from);
     opening = { qty: o?.balance_qty || 0, value: o?.balance_value || 0 };
   }
 

@@ -104,15 +104,15 @@ function resolveCustomer(b, companyId) {
 router.get('/sales/outstanding', (req, res) => {
   const { customer = '' } = req.query;
   if (!customer) return res.json({ outstanding: 0, paid: 0, total: 0 });
-  const rows = db.prepare(`SELECT si.invoice_total, si.amount_paid, si.status,
+  const rows = db.prepare(`SELECT si.amount_paid, si.status,
       si.discount_amount, si.freight_charges, si.packing_charges, si.insurance_charges, si.other_charges,
-      (SELECT COALESCE(SUM(l.taxable_value),0) FROM sales_invoice_lines l WHERE l.invoice_id=si.invoice_id) AS taxable_value
+      (SELECT COALESCE(SUM(l.taxable_value),0) FROM sales_invoice_lines l WHERE l.invoice_id=si.invoice_id) AS taxable_value,
+      (SELECT COALESCE(SUM(l.cgst_amount + l.sgst_amount + l.igst_amount),0) FROM sales_invoice_lines l WHERE l.invoice_id=si.invoice_id) AS gst_value
       FROM sales_invoices si WHERE si.company_id=? AND si.customer_name=? AND si.status != 'CANCELLED'`)
     .all(req.companyId, customer);
   let total = 0, paid = 0;
   for (const r of rows) {
-    const grand = ((r.taxable_value || 0) - (r.discount_amount || 0)) + (r.freight_charges || 0) + (r.packing_charges || 0) + (r.insurance_charges || 0) + (r.other_charges || 0) +
-      (r.status === 'DRAFT' ? 0 : r.other_charges || 0); // GST computed server-side; approximate for balance
+    const grand = round2(((r.taxable_value || 0) + (r.gst_value || 0) - (r.discount_amount || 0)) + (r.freight_charges || 0) + (r.packing_charges || 0) + (r.insurance_charges || 0) + (r.other_charges || 0));
     total += grand;
     paid += Number(r.amount_paid) || 0;
   }

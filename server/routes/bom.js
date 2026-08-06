@@ -15,18 +15,19 @@ function createBom(body, reqVersion = null, thisCompanyId = null) {
   if (!Array.isArray(lines) || lines.length === 0) throw new Error('BOM needs at least one component line');
 
   let version = reqVersion;
-  if (!version) {
-    const active = getActiveBom(output_item_id);
-    if (active) {
-      db.prepare('UPDATE bom_headers SET is_active=0 WHERE bom_id=?').run(active.bom_id);
-      version = active.version + 1;
-    } else {
-      const any = db.prepare('SELECT MAX(version) v FROM bom_headers WHERE output_item_id=?').get(output_item_id);
-      version = (any?.v || 0) + 1;
-    }
-  }
 
   const tx = db.transaction(() => {
+    if (!version) {
+      const active = getActiveBom(output_item_id);
+      if (active) {
+        db.prepare('UPDATE bom_headers SET is_active=0 WHERE bom_id=?').run(active.bom_id);
+        version = active.version + 1;
+      } else {
+        const any = db.prepare('SELECT MAX(version) v FROM bom_headers WHERE output_item_id=?').get(output_item_id);
+        version = (any?.v || 0) + 1;
+      }
+    }
+
     const info = db.prepare(`INSERT INTO bom_headers
       (company_id, output_item_id, output_qty, version, labor_cost, overhead_pct, is_active, notes)
       VALUES (?,?,?,?,?,?,1,?)`)

@@ -127,6 +127,8 @@ function backfillLineTaxes() {
 export function runMigrations() {
   const defaultId = ensureDefaultCompany();
 
+  rebuildSalesInvoices();
+
   /* Company Profile extensions */
   addCol('companies', 'phone', 'TEXT');
   addCol('companies', 'email', 'TEXT');
@@ -215,8 +217,6 @@ export function runMigrations() {
 
   addCol('sales_returns', 'company_id', 'INTEGER REFERENCES companies(company_id)');
   addCol('job_work_orders', 'company_id', 'INTEGER REFERENCES companies(company_id)');
-
-  rebuildSalesInvoices();
 
   /* link sales invoices to the customers master (also creates missing customers) */
   backfillCustomersFromInvoices(defaultId);

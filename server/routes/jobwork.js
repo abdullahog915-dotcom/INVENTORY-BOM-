@@ -6,13 +6,14 @@ const router = Router();
 
 function nextJwNo() {
   const year = new Date().getFullYear();
-  const row = db.prepare('SELECT jw_no FROM job_work_orders ORDER BY jw_id DESC LIMIT 1').get();
-  let seq = 1;
-  if (row) {
-    const m = row.jw_no.match(/(\d+)$/);
-    if (m) seq = parseInt(m[1], 10) + 1;
+  const prefix = `JW-${year}-`;
+  const rows = db.prepare('SELECT jw_no FROM job_work_orders WHERE jw_no LIKE ?').all(`${prefix}%`);
+  let max = 0;
+  for (const r of rows) {
+    const m = String(r.jw_no).match(/(\d+)$/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
   }
-  return `JW-${year}-${String(seq).padStart(4, '0')}`;
+  return `${prefix}${String(max + 1).padStart(4, '0')}`;
 }
 
 const JW_SELECT = `SELECT j.*, v.vendor_name, i.sku, i.item_name, i.unit
@@ -114,6 +115,7 @@ router.post('/jobwork/:id/receive', (req, res) => {
 router.post('/jobwork/:id/cancel', (req, res) => {
   const jw = db.prepare('SELECT * FROM job_work_orders WHERE jw_id=? AND company_id=?').get(req.params.id, req.companyId);
   if (!jw) return res.status(404).json({ error: 'Job work order not found' });
+  if (jw.status === 'CANCELLED') return res.status(400).json({ error: 'Already cancelled' });
   if (jw.qty_received > 0) return res.status(400).json({ error: 'Cannot cancel after partial receipt' });
 
   const tx = db.transaction(() => {

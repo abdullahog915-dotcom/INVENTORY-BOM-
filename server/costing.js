@@ -7,6 +7,10 @@ export function getActiveBom(outputItemId) {
     .get(outputItemId);
 }
 
+export function getBomById(bomId) {
+  return db.prepare('SELECT * FROM bom_headers WHERE bom_id=?').get(bomId);
+}
+
 export function getBomLines(bomId) {
   return db
     .prepare(`SELECT bl.*, i.sku, i.item_name, i.unit, i.item_type, i.avg_cost_rate
@@ -62,9 +66,14 @@ export function computeBomUnitCost(bomId, _visited = new Set()) {
 /**
  * Explodes a BOM down to leaf requirements (raw materials / items without a BOM).
  * Returns a Map: item_id -> { item, qty }
+ *
+ * @param {number} outputItemId  - the item whose BOM to explode
+ * @param {number} targetQty     - target output quantity
+ * @param {Set}    _visited      - circular reference guard
+ * @param {number} [bomId]       - optional specific BOM version to use (instead of latest active)
  */
-export function explodeBom(outputItemId, targetQty, _visited = new Set()) {
-  const bom = getActiveBom(outputItemId);
+export function explodeBom(outputItemId, targetQty, _visited = new Set(), bomId = null) {
+  const bom = bomId ? getBomById(bomId) : getActiveBom(outputItemId);
   if (!bom) throw new Error('No active BOM for this item');
   if (_visited.has(bom.bom_id)) throw new Error('Circular BOM reference detected');
   const visited = new Set(_visited);
@@ -93,18 +102,41 @@ export function explodeBom(outputItemId, targetQty, _visited = new Set()) {
   return result;
 }
 
-/** Estimated cost breakdown for producing `plannedQty` of an item from its active BOM. */
-export function estimateProductionCost(outputItemId, plannedQty) {
-  const bom = getActiveBom(outputItemId);
+/**
+ * Estimated cost breakdown for producing `plannedQty` of an item.
+ * Includes labour and overhead from nested semi-finished BOMs.
+ *
+ * @param {number} outputItemId  - the item to produce
+ * @param {number} plannedQty    - planned output quantity
+ * @param {number} [bomId]       - optional specific BOM version (for existing production orders)
+ */
+export function estimateProductionCost(outputItemId, plannedQty, bomId = null) {
+  const bom = bomId ? getBomById(bomId) : getActiveBom(outputItemId);
   if (!bom) throw new Error('No active BOM for this item');
 
-  const explosion = explodeBom(outputItemId, plannedQty);
+  const explosion = explodeBom(outputItemId, plannedQty, new Set(), bomId);
   let material = 0;
+  let nestedLabor = 0;
+
   for (const { item, qty } of explosion.values()) {
     material += qty * round2(item.avg_cost_rate);
   }
+
+  // Add labour and overhead from intermediate semi-finished BOMs
+  const lines = getBomLines(bom.bom_id);
+  for (const line of lines) {
+    const comp = db.prepare('SELECT * FROM items WHERE item_id=?').get(line.component_item_id);
+    if (comp && comp.item_type === 'SEMI_FINISHED') {
+      const childBom = getActiveBom(comp.item_id);
+      if (childBom) {
+        const scale = line.qty_required * (1 + (line.wastage_pct || 0) / 100);
+        nestedLabor += round2((childBom.labor_cost || 0) * scale);
+      }
+    }
+  }
+
   material = round2(material);
-  const labor = round2((bom.labor_cost || 0) * plannedQty / (bom.output_qty || 1));
+  const labor = round2((bom.labor_cost || 0) * plannedQty / (bom.output_qty || 1)) + nestedLabor;
   const overhead = round2((material + labor) * (bom.overhead_pct || 0) / 100);
 
   return {

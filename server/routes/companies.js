@@ -40,11 +40,14 @@ router.put('/:id', (req, res) => {
       phone=?, email=?, website=?, pan=?, upi_id=?, jurisdiction=?, field_defaults=?
       WHERE company_id=?`)
     .run(
-      b.name ?? c.name, b.address ?? c.address, b.gstin ?? c.gstin, b.state ?? c.state,
-      b.logo ?? c.logo, b.bank_details ?? c.bank_details, b.invoice_terms ?? c.invoice_terms,
-      b.phone ?? c.phone, b.email ?? c.email, b.website ?? c.website, b.pan ?? c.pan,
-      b.upi_id ?? c.upi_id, b.jurisdiction ?? c.jurisdiction,
-      b.field_defaults && Array.isArray(b.field_defaults) ? JSON.stringify(b.field_defaults) : c.field_defaults,
+      b.name !== undefined ? b.name : c.name, b.address !== undefined ? b.address : c.address,
+      b.gstin !== undefined ? b.gstin : c.gstin, b.state !== undefined ? b.state : c.state,
+      b.logo !== undefined ? b.logo : c.logo, b.bank_details !== undefined ? b.bank_details : c.bank_details,
+      b.invoice_terms !== undefined ? b.invoice_terms : c.invoice_terms,
+      b.phone !== undefined ? b.phone : c.phone, b.email !== undefined ? b.email : c.email,
+      b.website !== undefined ? b.website : c.website, b.pan !== undefined ? b.pan : c.pan,
+      b.upi_id !== undefined ? b.upi_id : c.upi_id, b.jurisdiction !== undefined ? b.jurisdiction : c.jurisdiction,
+      b.field_defaults !== undefined ? (Array.isArray(b.field_defaults) ? JSON.stringify(b.field_defaults) : b.field_defaults) : c.field_defaults,
       c.company_id
     );
   res.json(db.prepare('SELECT * FROM companies WHERE company_id=?').get(c.company_id));

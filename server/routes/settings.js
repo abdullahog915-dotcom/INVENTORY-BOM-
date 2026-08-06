@@ -30,17 +30,13 @@ router.post('/reset', (req, res) => {
 
   const tx = db.transaction(() => {
     for (const t of TRANSACTION_TABLES) {
-      db.prepare(`DELETE FROM "${t}"`).run();
-    }
-    for (const t of TRANSACTION_TABLES) {
-      db.prepare(`DELETE FROM sqlite_sequence WHERE name=?`).run(t);
+      db.prepare(`DELETE FROM "${t}" WHERE company_id=?`).run(req.companyId);
     }
   });
   tx();
 
   if (mode === 'reseed') {
-    const defaultCompany = db.prepare('SELECT company_id FROM companies ORDER BY is_default DESC, company_id LIMIT 1').get();
-    if (defaultCompany) seedCompany(defaultCompany.company_id);
+    seedCompany(req.companyId);
   }
 
   res.json({

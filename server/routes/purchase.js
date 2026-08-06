@@ -7,13 +7,14 @@ const router = Router();
 
 function nextPoNo() {
   const year = new Date().getFullYear();
-  const row = db.prepare('SELECT po_no FROM purchase_orders ORDER BY po_id DESC LIMIT 1').get();
-  let seq = 1;
-  if (row) {
-    const m = row.po_no.match(/(\d+)$/);
-    if (m) seq = parseInt(m[1], 10) + 1;
+  const prefix = `PO-${year}-`;
+  const rows = db.prepare('SELECT po_no FROM purchase_orders WHERE po_no LIKE ?').all(`${prefix}%`);
+  let max = 0;
+  for (const r of rows) {
+    const m = String(r.po_no).match(/(\d+)$/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
   }
-  return `PO-${year}-${String(seq).padStart(4, '0')}`;
+  return `${prefix}${String(max + 1).padStart(4, '0')}`;
 }
 
 /* ---------- Vendors ---------- */
@@ -230,9 +231,11 @@ router.post('/purchase/:id/receive', (req, res) => {
     for (const r of receives) {
       const line = getLine.get(r.line_id, po.po_id);
       if (!line) throw new Error(`Line #${r.line_id} not found on this PO`);
-      const newReceived = round2(line.qty_received + Number(r.qty_received));
+      const qtyReceived = Number(r.qty_received) || 0;
+      if (!(qtyReceived > 0)) throw new Error(`Line #${r.line_id} qty_received must be > 0`);
+      const newReceived = round2(line.qty_received + qtyReceived);
       if (newReceived > line.qty_ordered) throw new Error(`Receiving more than ordered on line #${r.line_id}`);
-      if (Number(r.qty_received) > 0) {
+      if (qtyReceived > 0) {
         /* GST stays separate (claimable as ITC): stock valued at net taxable rate only */
         const netRate = round2(line.rate * (1 - (line.discount_pct || 0) / 100));
         const item = db.prepare('SELECT * FROM items WHERE item_id=?').get(line.item_id);
@@ -270,6 +273,7 @@ router.post('/purchase/:id/cancel', (req, res) => {
   const po = getPo(req.params.id, req.companyId);
   if (!po) return res.status(404).json({ error: 'Purchase order not found' });
   if (po.status === 'RECEIVED') return res.status(400).json({ error: 'Cannot cancel a fully received PO' });
+  if (po.status === 'PARTIAL') return res.status(400).json({ error: 'Cannot cancel a PO with received items; reverse the receipts first' });
   db.prepare(`UPDATE purchase_orders SET status='CANCELLED' WHERE po_id=?`).run(po.po_id);
   res.json(getPo(req.params.id, req.companyId));
 });

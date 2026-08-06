@@ -130,6 +130,7 @@ function twoDigits(n) {
 }
 
 function threeDigits(n) {
+  if (n >= 1000) return String(n);
   const h = Math.floor(n / 100);
   const r = n % 100;
   return (h ? `${ONES[h]} Hundred${r ? ' ' : ''}` : '') + (r ? twoDigits(r) : '');

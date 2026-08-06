@@ -34,9 +34,12 @@ router.put('/:id', (req, res) => {
   const b = req.body;
   db.prepare(`UPDATE customers SET customer_name=?, billing_address=?, shipping_address=?, gstin=?, state=?, contact_no=?
       WHERE customer_id=?`)
-    .run(b.customer_name ?? c.customer_name, b.billing_address ?? c.billing_address,
-      b.shipping_address ?? c.shipping_address, b.gstin ?? c.gstin,
-      b.state ?? c.state, b.contact_no ?? c.contact_no, c.customer_id);
+    .run(b.customer_name !== undefined ? b.customer_name : c.customer_name,
+      b.billing_address !== undefined ? b.billing_address : c.billing_address,
+      b.shipping_address !== undefined ? b.shipping_address : c.shipping_address,
+      b.gstin !== undefined ? b.gstin : c.gstin,
+      b.state !== undefined ? b.state : c.state,
+      b.contact_no !== undefined ? b.contact_no : c.contact_no, c.customer_id);
   res.json(db.prepare('SELECT * FROM customers WHERE customer_id=?').get(c.customer_id));
 });
 

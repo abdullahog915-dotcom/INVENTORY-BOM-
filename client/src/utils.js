@@ -51,6 +51,7 @@ function two(n) {
 }
 
 function three(n) {
+  if (n >= 1000) return String(n);
   const h = Math.floor(n / 100);
   const r = n % 100;
   return (h ? `${ONES[h]} Hundred${r ? ' ' : ''}` : '') + (r ? two(r) : '');
